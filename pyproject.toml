@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "til-23-finals"
+version = "0.1.0"
+description = ""
+authors = ["John-Henry Lim <42513874+Interpause@users.noreply.github.com>"]
+readme = "README.md"
+packages = [{include = "til_23_finals"}]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.9"
+til-23-sdk = {path = "til-23-sdk", develop = true}
+til-23-cv = {path = "til-23-cv", develop = true}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

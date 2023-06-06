@@ -1,0 +1,12 @@
+{
+  "editor.formatOnSave": true,
+  "python.linting.mypyEnabled": true,
+  "python.formatting.provider": "black",
+  "black-formatter.importStrategy": "fromEnvironment",
+  "python.linting.pydocstyleEnabled": true,
+  "autoDocstring.docstringFormat": "google",
+  "isort.importStrategy": "fromEnvironment",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  }
+}
