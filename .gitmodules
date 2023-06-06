@@ -1,6 +1,6 @@
 [submodule "til-23-sdk"]
 	path = til-23-sdk
-	url = https://github.com/Interpause/til-23-sdk.git
+	url = https://github.com/BRIANWACK/til-23-sdk.git
 [submodule "til-23-cv"]
 	path = til-23-cv
-	url = https://github.com/Interpause/til-23-cv.git
+	url = https://github.com/BRIANWACK/til-23-cv.git
