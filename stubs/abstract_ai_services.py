@@ -1,3 +1,5 @@
+"""Abstract classes for AI services."""
+
 from abc import ABC, abstractmethod
 from typing import Tuple
 
@@ -6,15 +8,15 @@ from tilsdk.cv.types import BoundingBox, DetectedObject
 
 
 class AbstractDigitDetectionService(ABC):
-    """
-    Interface for Digit Detection.
+    """Interface for Digit Detection.
 
     This interface should be inherited from, and the following methods should be implemented.
     """
 
     @abstractmethod
     def __init__(self, model_dir: str):
-        """
+        """Initialize AbstractDigitDetectionService.
+
         Parameters
         ----------
         model_dir : str
@@ -31,6 +33,7 @@ class AbstractDigitDetectionService(ABC):
         audio_waveform : numpy.ndarray
             Numpy 1d array of floats that represent the audio file.
             It is assumed that the sampling rate of the audio is 16K.
+
         Returns
         -------
         results : Tuple[int]
@@ -40,15 +43,15 @@ class AbstractDigitDetectionService(ABC):
 
 
 class AbstractObjectReIDService(ABC):
-    """
-    Interface for Object ReID.
+    """Interface for Object ReID.
 
     This interface should be inherited from, and the following methods should be implemented.
     """
 
     @abstractmethod
     def __init__(self, yolo_model_path: str, reid_model_path: str):
-        """
+        """Initialize AbstractObjectReIDService.
+
         Parameters
         ----------
         yolo_model_dir : str
@@ -86,7 +89,8 @@ class AbstractSpeakerIDService(ABC):
     """Abstract class for the Speaker ID service."""
 
     def __init__(self, model_dir: str):
-        """
+        """Initialize AbstractSpeakerIDService.
+
         Parameters
         ----------
         model_dir : str
@@ -96,13 +100,15 @@ class AbstractSpeakerIDService(ABC):
 
     @abstractmethod
     def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
-        """
+        """Identify the speaker in the audio file.
+
         Parameters
         ----------
         audio_waveform : np.ndarray
             input waveform.
         sampling_rate : int
             the sampling rate of the audio file.
+
         Returns
         -------
         result : str

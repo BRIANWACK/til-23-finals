@@ -4,7 +4,7 @@
   "python.formatting.provider": "black",
   "black-formatter.importStrategy": "fromEnvironment",
   "python.linting.pydocstyleEnabled": true,
-  "autoDocstring.docstringFormat": "google",
+  "autoDocstring.docstringFormat": "numpy",
   "isort.importStrategy": "fromEnvironment",
   "editor.codeActionsOnSave": {
     "source.organizeImports": true
