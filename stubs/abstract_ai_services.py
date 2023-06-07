@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Tuple
+from typing import Tuple
 
 import numpy as np
-from tilsdk.localization.types import *
+from tilsdk.cv.types import BoundingBox, DetectedObject
 
 
 class AbstractDigitDetectionService(ABC):
@@ -23,23 +23,20 @@ class AbstractDigitDetectionService(ABC):
         pass
 
     @abstractmethod
-    def transcribe_audio_to_digits(self, audio_waveform: np.array) -> Tuple[int]:
+    def transcribe_audio_to_digits(self, audio_waveform: np.ndarray) -> Tuple[int]:
         """Transcribe audio waveform to a tuple of ints.
 
         Parameters
         ----------
-        audio_waveform : numpy.array
+        audio_waveform : numpy.ndarray
             Numpy 1d array of floats that represent the audio file.
             It is assumed that the sampling rate of the audio is 16K.
         Returns
         -------
-        results  :
+        results : Tuple[int]
             The ordered tuple of digits found in the input audio file.
         """
         pass
-
-
-from tilsdk.cv.types import *  # Some data structures useful for CV.
 
 
 class AbstractObjectReIDService(ABC):
@@ -56,14 +53,14 @@ class AbstractObjectReIDService(ABC):
         ----------
         yolo_model_dir : str
             Path of yolo model file to load.
-        reid_model_path: str
+        reid_model_path : str
             Path of reid model file to load.
-        device: str
+        device : str
             the torch device to use for computation.
         """
-        # Does nothing.
         pass
 
+    @abstractmethod
     def targets_from_image(self, scene_img, target_img) -> BoundingBox:
         """Process image with re-id pipeline and return the detected objects and their classes.
 
@@ -74,7 +71,7 @@ class AbstractObjectReIDService(ABC):
 
         Returns
         -------
-        results  : List[DetectedObject]
+        results : List[DetectedObject]
             List of DetectedObjects.
         """
         # dummy data
@@ -98,11 +95,11 @@ class AbstractSpeakerIDService(ABC):
         pass
 
     @abstractmethod
-    def identify_speaker(self, audio_waveform: np.array, sampling_rate: int) -> str:
+    def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
         """
         Parameters
         ----------
-        audio_waveform : np.array
+        audio_waveform : np.ndarray
             input waveform.
         sampling_rate : int
             the sampling rate of the audio file.
