@@ -10,6 +10,7 @@ packages = [{include = "til_23_finals"}]
 python = ">=3.8,<3.9"
 til-23-sdk = {path = "til-23-sdk", develop = true}
 til-23-cv = {path = "til-23-cv", develop = true}
+nemo-toolkit = {extras = ["asr"], version = "^1.18.1"}
 
 [tool.poetry.group.dev.dependencies]
 black = "23.3.0"
