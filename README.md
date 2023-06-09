@@ -12,3 +12,7 @@ pip install -r requirements.txt
 pip install -e ./til-23-cv
 pip install -e ./til-23-sdk
 ```
+
+```sh
+conda install sox libsndfile ffmpeg
+```

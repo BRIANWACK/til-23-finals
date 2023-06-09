@@ -1,20 +1,22 @@
+"""Abstract classes for AI services."""
+
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Tuple
+from typing import Tuple
 
 import numpy as np
-from tilsdk.localization.types import *
+from tilsdk.cv.types import BoundingBox, DetectedObject
 
 
 class AbstractDigitDetectionService(ABC):
-    """
-    Interface for Digit Detection.
+    """Interface for Digit Detection.
 
     This interface should be inherited from, and the following methods should be implemented.
     """
 
     @abstractmethod
     def __init__(self, model_dir: str):
-        """
+        """Initialize AbstractDigitDetectionService.
+
         Parameters
         ----------
         model_dir : str
@@ -23,47 +25,45 @@ class AbstractDigitDetectionService(ABC):
         pass
 
     @abstractmethod
-    def transcribe_audio_to_digits(self, audio_waveform: np.array) -> Tuple[int]:
+    def transcribe_audio_to_digits(self, audio_waveform: np.ndarray) -> Tuple[int]:
         """Transcribe audio waveform to a tuple of ints.
 
         Parameters
         ----------
-        audio_waveform : numpy.array
+        audio_waveform : numpy.ndarray
             Numpy 1d array of floats that represent the audio file.
             It is assumed that the sampling rate of the audio is 16K.
+
         Returns
         -------
-        results  :
+        results : Tuple[int]
             The ordered tuple of digits found in the input audio file.
         """
         pass
 
 
-from tilsdk.cv.types import *  # Some data structures useful for CV.
-
-
 class AbstractObjectReIDService(ABC):
-    """
-    Interface for Object ReID.
+    """Interface for Object ReID.
 
     This interface should be inherited from, and the following methods should be implemented.
     """
 
     @abstractmethod
     def __init__(self, yolo_model_path: str, reid_model_path: str):
-        """
+        """Initialize AbstractObjectReIDService.
+
         Parameters
         ----------
         yolo_model_dir : str
             Path of yolo model file to load.
-        reid_model_path: str
+        reid_model_path : str
             Path of reid model file to load.
-        device: str
+        device : str
             the torch device to use for computation.
         """
-        # Does nothing.
         pass
 
+    @abstractmethod
     def targets_from_image(self, scene_img, target_img) -> BoundingBox:
         """Process image with re-id pipeline and return the detected objects and their classes.
 
@@ -74,7 +74,7 @@ class AbstractObjectReIDService(ABC):
 
         Returns
         -------
-        results  : List[DetectedObject]
+        results : List[DetectedObject]
             List of DetectedObjects.
         """
         # dummy data
@@ -89,7 +89,8 @@ class AbstractSpeakerIDService(ABC):
     """Abstract class for the Speaker ID service."""
 
     def __init__(self, model_dir: str):
-        """
+        """Initialize AbstractSpeakerIDService.
+
         Parameters
         ----------
         model_dir : str
@@ -98,14 +99,16 @@ class AbstractSpeakerIDService(ABC):
         pass
 
     @abstractmethod
-    def identify_speaker(self, audio_waveform: np.array, sampling_rate: int) -> str:
-        """
+    def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
+        """Identify the speaker in the audio file.
+
         Parameters
         ----------
-        audio_waveform : np.array
+        audio_waveform : np.ndarray
             input waveform.
         sampling_rate : int
             the sampling rate of the audio file.
+
         Returns
         -------
         result : str
