@@ -11,6 +11,8 @@ python = ">=3.8,<3.9"
 til-23-sdk = {path = "til-23-sdk", develop = true}
 til-23-cv = {path = "til-23-cv", develop = true}
 nemo-toolkit = {extras = ["asr"], version = "^1.18.1"}
+robomaster = "^0.1.1.68"
+imutils = "^0.5.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "23.3.0"
