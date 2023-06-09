@@ -11,8 +11,13 @@ git submodule update --init --recursive
 pip install -r requirements.txt
 pip install -e ./til-23-cv
 pip install -e ./til-23-sdk
+pip install -e ./til-23-cv/ultralytics
 ```
 
 ```sh
 conda install sox libsndfile ffmpeg
+```
+
+```sh
+python stubs/autonomy_starter.py --config cfg/autonomy_cfg.yml
 ```
