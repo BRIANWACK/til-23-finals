@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
+import imutils
 import yaml
 from librosa import load as load_audio
 
@@ -37,7 +38,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-import imutils
+
 
 ##### HELPER FUNCTIONS #####
 
@@ -553,9 +554,9 @@ if __name__ == "__main__":
         cfg = yaml.safe_load(f)
 
         if cfg["use_real_models"] == True:
+            from mock_ai_services import MockDigitDetectionService
             from reid_service import BasicObjectReIDService
             from speaker_service import NeMoSpeakerIDService
-            from mock_ai_services import MockDigitDetectionService
 
             REID_SERVICE = BasicObjectReIDService
             SPEAKER_SERVICE = NeMoSpeakerIDService

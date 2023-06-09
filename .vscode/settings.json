@@ -8,5 +8,8 @@
   "isort.importStrategy": "fromEnvironment",
   "editor.codeActionsOnSave": {
     "source.organizeImports": true
-  }
+  },
+  "python.analysis.extraPaths": [
+    "./til-23-sdk/src"
+  ]
 }
