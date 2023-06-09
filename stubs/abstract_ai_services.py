@@ -1,10 +1,10 @@
 """Abstract classes for AI services."""
 
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
-from tilsdk.cv.types import BoundingBox, DetectedObject
+from tilsdk.cv.types import BoundingBox
 
 
 class AbstractDigitDetectionService(ABC):
@@ -58,31 +58,32 @@ class AbstractObjectReIDService(ABC):
             Path of yolo model file to load.
         reid_model_path : str
             Path of reid model file to load.
-        device : str
-            the torch device to use for computation.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
-    def targets_from_image(self, scene_img, target_img) -> BoundingBox:
-        """Process image with re-id pipeline and return the detected objects and their classes.
+    def targets_from_image(
+        self, scene_img: np.ndarray, target_img: np.ndarray
+    ) -> Union[BoundingBox, None]:
+        """Process image with re-id pipeline and return the bounding box of the target_img.
+
+        Returns None if the model doesn't believe that the target is within scene.
 
         Parameters
         ----------
-        img : Any
-            Input image.
+        scene_img : np.ndarray
+            Input image representing the scene to search through.
+        target_img : np.ndarray
+            Target image representing the object to re-identify.
 
         Returns
         -------
-        results : List[DetectedObject]
-            List of DetectedObjects.
+        results : BoundingBox or None
+            BoundingBox of target within scene.
+            Assume the values are NOT normalized, i.e. the bbox values are based on the raw
+            pixel coordinates of the `scene_img`.
         """
-        # dummy data
-        bbox = BoundingBox(100, 100, 300, 50)
-        obj = DetectedObject("1", "1", bbox)
-        # DetectedObject: ['id', 'cls', 'bbox']
-        # e.g. cls=0 means match class 0, cls=1 means match class 1, cls=2 means match class2.
-        pass
+        raise NotImplementedError
 
 
 class AbstractSpeakerIDService(ABC):
