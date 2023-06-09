@@ -8,9 +8,9 @@ import torch
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_cv import cos_sim, thres_strategy_naive
 
-from .abstract_ai_services import AbstractSpeakerIDService
+from abstract_ai_services import AbstractSpeakerIDService
 
-BEST_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 class NeMoSpeakerIDService(AbstractSpeakerIDService):
@@ -31,7 +31,7 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         """
         self.device = device
         # nvidia/speakerverification_en_titanet_large
-        self.model: NeMoModel = NeMoModel.from_pretrained(model_dir)
+        self.model: NeMoModel = NeMoModel.restore_from(restore_path=model_dir)
         self.model.to(device).eval()
 
         # TODO: Cache embeddings.

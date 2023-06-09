@@ -9,12 +9,12 @@ from tilsdk.cv.types import BoundingBox
 from ultralytics import YOLO
 from ultralytics.yolo.engine.results import Results
 
-from .abstract_ai_services import AbstractObjectReIDService
+from abstract_ai_services import AbstractObjectReIDService
 
 log = logging.getLogger("ReIDService")
 logging.getLogger("ultralytics").setLevel(logging.WARNING)
 
-BEST_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 # Workaround for annoying ultralytics bug.
 locale.getpreferredencoding = lambda _: "UTF-8"  # type: ignore
