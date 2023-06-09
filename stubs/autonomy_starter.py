@@ -37,6 +37,8 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+import imutils
+
 ##### HELPER FUNCTIONS #####
 
 
@@ -157,17 +159,17 @@ def ang_diff_to_wp(pose, curr_wp):
 def main():
     # === Initialize admin services ===
     loc_service = LocalizationService(
-        host="localhost", port=5566
+        host=LOCALIZATION_SERVER_IP, port=LOCALIZATION_SERVER_PORT
     )  # if passthrough sim, use sim's ip address.
-    rep_service = ReportingService(host="localhost", port=5501)
+    rep_service = ReportingService(host=SCORE_SERVER_IP, port=SCORE_SERVER_PORT)
 
     # === Initialize AI services. ===
     if cfg["use_real_models"] == True:
-        reid_service = ObjectReIDService(
+        reid_service = REID_SERVICE(
             yolo_model_path=CV_MODEL_DIR, reid_model_path=REID_MODEL_DIR
         )
-        speakerid_service = SpeakerIDService(model_dir=SPEAKER_ID_MODEL_DIR)
-        digit_detection_service = DigitDetectionService(model_dir=NLP_MODEL_DIR)
+        speakerid_service = SPEAKER_SERVICE(model_dir=SPEAKER_ID_MODEL_DIR)
+        digit_detection_service = DIGIT_SERVICE(model_dir=NLP_MODEL_DIR)
     else:  # initialize mock AI classes.
         reid_service = MockObjectReIDService(
             yolo_model_path=CV_MODEL_DIR, reid_model_path=REID_MODEL_DIR
@@ -182,6 +184,9 @@ def main():
 
     # === Initialize planner ===
     map_: SignedDistanceGrid = loc_service.get_map()
+    # TODO: Set map_.scale below to calibrate
+    # TODO: Create manual/automatic calibration routine
+    # map_.scale *= 2
     map_ = map_.dilated(
         ROBOT_RADIUS_M
     )  # dilate obstacles virtually so that planner avoids
@@ -243,6 +248,8 @@ def main():
             )
             continue
 
+        # TEMP
+        # try_start_tasks = True
         if try_start_tasks:
             ## Check whether robot's pose is a checkpoint or not.
             info = rep_service.check_pose(pose)
@@ -281,6 +288,8 @@ def main():
             else:
                 raise Exception(f"Unexpected return type: {type(info)}.")
 
+            # TEMP
+            # try_start_tasks = True
             if try_start_tasks:
                 logging.getLogger("Main").info("===== Starting AI tasks =====")
 
@@ -304,19 +313,34 @@ def main():
                 # will not be in same scene together. If they inadvertently are, then report the
                 # closer bounding box.
 
+                if VISUALIZE:
+                    img_mat = imutils.resize(img, width=1280)
+                    sus_col = (255, 0, 0)
+                    hostage_col = (0, 255, 0)
+                    non_col = (0, 0, 255)
+
+                # TODO: also report the bbox.
                 if sus_bbox:
                     save_path = rep_service.report_situation(
                         img, pose, "suspect", Path(ZIP_SAVE_DIR)
                     )
-                    # TODO: also report the bbox.
-                elif hostage_bbox:
+                    if VISUALIZE:
+                        cv2.rectangle(img_mat, sus_bbox, sus_col, 5)
+                if hostage_bbox:
                     save_path = rep_service.report_situation(
                         img, pose, "hostage", Path(ZIP_SAVE_DIR)
                     )
-                else:
+                    if VISUALIZE:
+                        cv2.rectangle(img_mat, hostage_bbox, hostage_col, 5)
+                if not sus_bbox and not hostage_bbox:
                     save_path = rep_service.report_situation(
                         img, pose, "none", Path(ZIP_SAVE_DIR)
                     )
+
+                if VISUALIZE:
+                    cv2.imshow("Object View", img_mat)
+                    cv2.waitKey(1)
+                    # continue
 
                 logging.getLogger("Main").info(f"saved received files into {save_path}")
 
@@ -394,6 +418,19 @@ def main():
 
             real_location = RealLocation(x=pose[0], y=pose[1])
             grid_location = map_.real_to_grid(real_location)
+
+            # TODO: Add visualization code here.
+            if VISUALIZE:
+                plt.ion()
+                plt.scatter(real_location.x, real_location.y)
+                plt.draw()
+                plt.pause(0.01)
+
+                mapMat = imutils.resize(map_.grid, width=600)
+                cv2.circle(mapMat, (grid_location.x*2, grid_location.y*2), 20, 0, -1)
+                cv2.imshow("Map", mapMat)
+                cv2.waitKey(1)
+
             if map_.in_bounds(grid_location) and map_.passable(grid_location):
                 last_valid_pose = pose
             else:
@@ -516,9 +553,13 @@ if __name__ == "__main__":
         cfg = yaml.safe_load(f)
 
         if cfg["use_real_models"] == True:
-            from digit_detect_service import DigitDetectionService
-            from object_reid_service import ObjectReIDService
-            from speaker_id_service import SpeakerIDService
+            from reid_service import BasicObjectReIDService
+            from speaker_service import NeMoSpeakerIDService
+            from mock_ai_services import MockDigitDetectionService
+
+            REID_SERVICE = BasicObjectReIDService
+            SPEAKER_SERVICE = NeMoSpeakerIDService
+            DIGIT_SERVICE = MockDigitDetectionService
         else:
             from mock_ai_services import (
                 MockDigitDetectionService,
@@ -533,6 +574,14 @@ if __name__ == "__main__":
             from tilsdk.mock_robomaster.robot import (
                 Robot,  # Use this for simulated robot.
             )
+
+        VISUALIZE = True
+
+        SCORE_SERVER_IP = "172.16.18.20"
+        SCORE_SERVER_PORT = 5512
+        LOCALIZATION_SERVER_IP = "172.16.18.20"
+        LOCALIZATION_SERVER_PORT = 5577
+        ROBOT_IP = "172.16.18.140"
 
         REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]

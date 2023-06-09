@@ -1,5 +1,5 @@
-use_real_models: false
-use_real_localization: false
+use_real_models: true
+use_real_localization: true
 
 # radius in metres to consider robot as having reached a waypoint/goal. 
 # this should be set slightly lower than the server's `local_thres` param.
@@ -14,18 +14,18 @@ ROBOT_RADIUS_M : 0.17
 
 NLP_MODEL_DIR : '/mnt/d/code/til-23-finals/stubs/digit_detect_utils/model.pt'
 
-CV_MODEL_DIR : '/mnt/d/code/til-23-finals/stubs/yolo_utils/best.pt'
+CV_MODEL_DIR : 'models/det.pt'
 
-REID_MODEL_DIR : '/mnt/d/code/til-23-finals/stubs/reid_utils/model.pth'
+REID_MODEL_DIR : 'models/reid.pt'
 
-SPEAKER_ID_MODEL_DIR : '/mnt/d/code/til-23-finals/stubs/speakerid_utils/demo_models_advance_cleaned'
+SPEAKER_ID_MODEL_DIR : './models/speakerverification_en_titanet_large.nemo'
 
 # directory path to save robot's photos to. if relative path doesn't work, try abs path.
-PHOTO_DIR : "D:/TIL-AI 2023/til-22-finals/til-23-finals/data/imgs"
+PHOTO_DIR : "temp/imgs"
 
 # Directory in which to unzip zipped folders received from scoring server.
 # Use absolute path.
-ZIP_SAVE_DIR: "D:/TIL-AI 2023/til-22-finals/til-23-finals/temp"
+ZIP_SAVE_DIR: "temp"
 
 # Number of nav iterations to consider robot as "stuck" on one waypoint.
 STUCK_THRESHOLD : 30
@@ -33,6 +33,6 @@ STUCK_THRESHOLD : 30
 MY_TEAM_NAME: "Team-Test-Test"
 
 # Images to re-id                                            
-SUSPECT_IMG : "D:/TIL-AI 2023/til-22-finals/til-23-finals/data/imgs/targetmario.png"
-HOSTAGE_IMG : "D:/TIL-AI 2023/til-22-finals/til-23-finals/data/imgs/targetmario.png"
+SUSPECT_IMG : data/arena-session1/1B_suspect.png
+HOSTAGE_IMG : data/arena-session1/1B_hostage.png
 
