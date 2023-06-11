@@ -3327,14 +3327,12 @@ twitter = ["twython"]
 
 [[package]]
 name = "noisereduce"
-version = "2.0.1"
-description = "Noise reduction using Spectral Gating in python"
+version = "3.0.0"
+description = ""
 optional = false
 python-versions = "*"
-files = [
-    {file = "noisereduce-2.0.1-py3-none-any.whl", hash = "sha256:a88c4eeb7777d1bd89d7fb939dfb8ed0d65bf4fbba22fc6f2807211487544a50"},
-    {file = "noisereduce-2.0.1.tar.gz", hash = "sha256:86faac20b0bddf61722e25704b42a27e67fa6fb011d8edcdee28ea2478da8b87"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 librosa = "*"
@@ -3344,7 +3342,13 @@ scipy = "*"
 tqdm = "*"
 
 [package.extras]
-tensorflow = ["tensorflow (>=2.0)"]
+pytorch = ["torch (>=1.9.0)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/timsainb/noisereduce.git"
+reference = "57512ceac7672c8847beaa4654392977c6ea9d49"
+resolved_reference = "57512ceac7672c8847beaa4654392977c6ea9d49"
 
 [[package]]
 name = "numba"
@@ -7245,4 +7249,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.9"
-content-hash = "c6734986be0823b40e95283e6cab8456c20a366d02bf851051889049efce2127"
+content-hash = "bb8d8db83960356fc9dce39a9ddbf5d3424741ce17806c08ee5b79093d3721d3"

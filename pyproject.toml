@@ -14,7 +14,7 @@ nemo-toolkit = {extras = ["asr"], version = "^1.18.1"}
 robomaster = "^0.1.1.68"
 imutils = "^0.5.4"
 demucs = "^4.0.0"
-noisereduce = "^2.0.1"
+noisereduce = {git = "https://github.com/timsainb/noisereduce.git", rev = "57512ceac7672c8847beaa4654392977c6ea9d49"}
 openai-whisper = "^20230314"
 
 [tool.poetry.group.dev.dependencies]
