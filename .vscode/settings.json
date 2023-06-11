@@ -9,7 +9,5 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": true
   },
-  "python.analysis.extraPaths": [
-    "./til-23-sdk/src"
-  ]
+  "python.analysis.extraPaths": ["./til-23-sdk2/src"]
 }
