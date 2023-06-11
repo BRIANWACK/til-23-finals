@@ -1,4 +1,5 @@
 """Various implementations for `AbstractObjectReIDService`."""
+
 import locale
 import logging
 import os
@@ -49,9 +50,18 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         )
 
         self.yolo = YOLO(self.yolo_model_path)
+        # NOTE: Torchscript model has to be initialized on same device type it was exported from!
         self.reid = ReIDEncoder(self.reid_model_path, device=self.device)
         self.yolo.fuse()
 
+        # Move to CPU to save GPU memory.
+        self.yolo.to("cpu")
+        self.reid.to("cpu")
+
+    # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
+    # be averaged for robustness.
+    # TODO: Temporal image denoise & upscale.
+    # TODO: Return all bboxes for use in camera adjustment. (perhaps focus on each?)
     def targets_from_image(self, scene_img, target_img):
         """Process image with re-id pipeline and return the bounding box of the target_img.
 
@@ -86,6 +96,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             imgsz=1280,
             verbose=False,
         )[0]
+        self.yolo.to("cpu")
 
         boxes = res.boxes.xyxy.round().int().tolist()
         crops = []
@@ -101,7 +112,10 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         if len(crops) == 0:
             return None
 
+        self.reid.to(self.device)
         embeds = self.reid([target_img, *crops])
+        self.reid.to("cpu")
+
         box_sims = [cos_sim(embeds[0], e) for e in embeds[1:]]
         idx = thres_strategy_naive(box_sims, self.reid_thres)
 

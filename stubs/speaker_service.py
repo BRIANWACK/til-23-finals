@@ -43,6 +43,9 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
             # Remove batch dimension.
             self.speaker_embeds.append(embed[0].numpy(force=True))
 
+        # Move to CPU to save GPU memory.
+        self.model.to("cpu")
+
     # TODO: Modify abstract interface to accept filepath instead of waveform for convenience.
     # TODO: Ability to exclude speaker ids if sure our team's speaker is already identified.
     def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
@@ -68,10 +71,12 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         audio_len = len(audio_waveform)
 
         with torch.inference_mode():
+            self.model.to(self.device)
             _, embed = self.model.forward(
                 input_signal=torch.tensor([audio_waveform], device=self.device),
                 input_signal_length=torch.tensor([audio_len], device=self.device),
             )
+            self.model.to("cpu")
 
         embed = embed[0].numpy(force=True)
         speaker_sims = [cos_sim(embed, e) for e in self.speaker_embeds]
