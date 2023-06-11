@@ -1,4 +1,4 @@
-"""Various implementations from `AbstractSpeakerIDService`."""
+"""Various implementations for `AbstractSpeakerIDService`."""
 
 from pathlib import Path
 
