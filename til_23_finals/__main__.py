@@ -20,8 +20,9 @@ import yaml
 # Import necessary and useful things from til2023 SDK
 from tilsdk import *  # import the SDK
 from tilsdk.reporting import save_zip  # to handle embedded zip file in flask response
+from tilsdk.utilities.filters import SimpleMovingAverage
 
-from .navigation import Navigator, get_pose, plan_path, pose_filter
+from .navigation import Navigator, plan_path
 
 # Import your code
 from .planner import (  # Exceptions for path planning.
@@ -163,7 +164,7 @@ def main():
 
     # Main loop
     while True:
-        pose = get_pose(loc_service, pose_filter)
+        pose = navigator.get_filtered_pose()
         if pose is None:
             continue
         real_location = RealLocation(x=pose[0], y=pose[1])

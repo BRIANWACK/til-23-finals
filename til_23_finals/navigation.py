@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # Import necessary and useful things from til2023 SDK
-from tilsdk import (  # import the SDK
+from tilsdk.localization import (  # import the SDK
     RealLocation,
     SignedDistanceGrid,
     euclidean_distance,
@@ -28,15 +28,6 @@ DEFAULT_PID = dict(Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0))
 main_log = logging.getLogger("Main")
 nav_log = logging.getLogger("Nav")
 ctrl_log = logging.getLogger("Ctrl")
-
-
-def get_pose(loc_service, pose_filter):
-    """Get filtered pose."""
-    pose = loc_service.get_pose()
-    # no new pose data, continue to next iteration.
-    if not pose:
-        return None
-    return pose_filter.update(pose)
 
 
 def plan_path(planner, start: list, goal):
@@ -93,6 +84,14 @@ class Navigator:
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
 
+    def get_filtered_pose(self):
+        """Get filtered pose."""
+        pose = self.loc_service.get_pose()
+        # no new pose data, continue to next iteration.
+        if not pose:
+            return None
+        return self.pose_filter.update(pose)
+
     def drawPose(self, mapMat, grid_location, heading):
         """Draw pose on map."""
         cosTheta = np.cos(np.deg2rad(heading))
@@ -134,7 +133,7 @@ class Navigator:
         main_log.info("Path planned.")
 
         while True:
-            pose = get_pose(self.loc_service, self.pose_filter)
+            pose = self.get_filtered_pose()
             if pose is None:
                 continue
 
@@ -171,7 +170,7 @@ class Navigator:
                 )  # current heading vs target heading
                 nav_log.info("Turning robot to face target angle...")
                 while abs(rel_ang) > 20:
-                    pose = get_pose(self.loc_service, self.pose_filter)
+                    pose = self.get_filtered_pose()
                     rel_ang = ang_difference(
                         pose[2], target_rotation
                     )  # current heading vs target heading
@@ -265,7 +264,7 @@ class Navigator:
         # self.robot.gimbal.recenter()
 
         while True:
-            pose = get_pose(self.loc_service, self.pose_filter)
+            pose = self.get_filtered_pose()
             print(pose)
             if pose is None:
                 continue
