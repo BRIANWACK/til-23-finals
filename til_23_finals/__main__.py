@@ -43,7 +43,8 @@ def main():
     robot = Robot()
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="chassis_lead")
-    robot.gimbal.recenter()
+    if not IS_SIM:
+        robot.gimbal.recenter()
 
     # === Initialize planner ===
     map_: SignedDistanceGrid = loc_service.get_map()
@@ -184,7 +185,9 @@ if __name__ == "__main__":
     with open(cfg_path, "r") as f:
         cfg = yaml.safe_load(f)
 
-        if cfg["use_real_localization"]:
+        IS_SIM = cfg["use_real_localization"]
+
+        if IS_SIM:
             from robomaster.robot import Robot
         else:
             from tilsdk.mock_robomaster.robot import Robot
