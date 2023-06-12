@@ -17,6 +17,10 @@ from .planner import (  # Exceptions for path planning.
     Planner,
 )
 
+main_log = logging.getLogger("Main")
+nav_log = logging.getLogger("Nav")
+ctrl_log = logging.getLogger("Ctrl")
+
 # === Initialize movement controller ===
 controller = PIDController(
     Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0)
@@ -118,11 +122,11 @@ class Navigator:
             )  ## Ensure only valid start positions are passed to the planner.
 
         except InvalidStartException as e:
-            logging.getLogger("Navigation").warn(f"{e}")
+            nav_log.warning(f"{e}")
             # TODO: find and use another valid start point.
             return
 
-        logging.getLogger("Main").info("Path planned.")
+        main_log.info("Path planned.")
 
         while True:
             pose = get_pose(self.loc_service, pose_filter)
@@ -141,7 +145,7 @@ class Navigator:
             if self.map.in_bounds(grid_location) and self.map.passable(grid_location):
                 last_valid_pose = pose
             else:
-                logging.getLogger("Main").warning(
+                main_log.warning(
                     f"Invalid pose received from localization server. Skipping."
                 )
                 continue
@@ -150,7 +154,7 @@ class Navigator:
             if (
                 round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M
             ):  # Reached checkpoint.
-                logging.getLogger("Navigation").info(
+                nav_log.info(
                     f"Reached checkpoint {last_valid_pose[0]:.2f},{last_valid_pose[1]:.2f}"
                 )
                 path = []  # flush path.
@@ -160,9 +164,7 @@ class Navigator:
                 rel_ang = ang_difference(
                     last_valid_pose[2], target_rotation
                 )  # current heading vs target heading
-                logging.getLogger("Navigation").info(
-                    "Turning robot to face target angle..."
-                )
+                nav_log.info("Turning robot to face target angle...")
                 while abs(rel_ang) > 20:
                     pose = get_pose(self.loc_service, pose_filter)
                     rel_ang = ang_difference(
@@ -171,20 +173,16 @@ class Navigator:
 
                     if rel_ang < -20:
                         # rotate counter-clockwise
-                        logging.getLogger("Navigation").info(
-                            f"Trying to turn clockwise... ang left: {rel_ang}"
-                        )
+                        nav_log.info(f"Trying to turn clockwise... ang left: {rel_ang}")
                         self.robot.chassis.drive_speed(x=0, z=10)
                     elif rel_ang > 20:
                         # rotate clockwise
-                        logging.getLogger("Navigation").info(
+                        nav_log.info(
                             f"Trying to turn counter-clockwise... ang left: {rel_ang}"
                         )
                         self.robot.chassis.drive_speed(x=0, z=-10)
                     time.sleep(1)
-                logging.getLogger("Navigation").info(
-                    "Robot should now be facing close to target angle."
-                )
+                nav_log.info("Robot should now be facing close to target angle.")
 
                 curr_wp = None
                 prev_loi = curr_loi
@@ -199,7 +197,7 @@ class Navigator:
                     curr_wp_grid = self.map.real_to_grid(curr_wp)
                     cv2.circle(mapMat, (curr_wp_grid.x, curr_wp_grid.y), 5, 0, -1)
 
-                logging.getLogger("Navigation").info(f"Num wps left: {len(path)}")
+                nav_log.info(f"Num wps left: {len(path)}")
 
                 dist_to_wp = euclidean_distance(real_location, curr_wp)
                 if round(dist_to_wp, 2) < self.REACHED_THRESHOLD_M:
@@ -212,12 +210,10 @@ class Navigator:
                 curr_wp_str = f"{curr_wp[0]:.2f}, {curr_wp[1]:.2f}"
                 curr_loi_str = f"{curr_loi[0]:.2f}, {curr_loi[1]:.2f}"
                 dist_to_wp = euclidean_distance(real_location, curr_wp)
-                logging.getLogger("Navigation").info(
+                nav_log.info(
                     f"Goal: {curr_loi_str}, {target_rotation} \t Pose: {pose_str}"
                 )
-                logging.getLogger("Navigation").info(
-                    f"WP: {curr_wp_str} \t dist_to_wp: {dist_to_wp:.2f}\n"
-                )
+                nav_log.info(f"WP: {curr_wp_str} \t dist_to_wp: {dist_to_wp:.2f}\n")
 
                 ang_diff = ang_diff_to_wp(last_valid_pose, curr_wp)
 
@@ -234,16 +230,14 @@ class Navigator:
                     vel_cmd[0] = 0.0
 
                 forward_vel, ang_vel = vel_cmd[0], vel_cmd[1]
-                logging.getLogger("Control").info(
+                ctrl_log.info(
                     f"input for final forward speed and rotation speed: {forward_vel:.2f}, {ang_vel:.2f}"
                 )
 
                 self.robot.chassis.drive_speed(x=forward_vel, z=ang_vel)
                 time.sleep(1)
             else:
-                logging.getLogger("Navigation").info(
-                    "Did not reach checkpoint and no waypoints left."
-                )
+                nav_log.info("Did not reach checkpoint and no waypoints left.")
                 raise Exception("Did not reach checkpoint and no waypoints left.")
 
             mapMat = imutils.resize(mapMat, width=600)

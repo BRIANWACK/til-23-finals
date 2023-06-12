@@ -37,16 +37,19 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+main_log = logging.getLogger("Main")
+reid_log = logging.getLogger("ReID")
+sid_log = logging.getLogger("SpeakID")
+cam_log = logging.getLogger("Cam")
+
 
 ##### HELPER FUNCTIONS #####
-
-
 def load_audio_from_dir(save_path: str):
     audio_dict = {}
     for item in os.scandir(save_path):
         if item.is_file() and item.name.endswith(".wav"):
             audio_fpath = Path(os.fsdecode(item.path)).as_posix()
-            logging.getLogger("Main").info(f"loading {audio_fpath}...")
+            main_log.info(f"loading {audio_fpath}...")
             # with open(audio_fpath) as audio_file:
             audio_dict[item.name] = load_audio(
                 audio_fpath, sr=16000
@@ -56,13 +59,13 @@ def load_audio_from_dir(save_path: str):
 
 def reid(reid_service, hostage_img, suspect_img, img):
     # pass image to re-id service, check whether Suspect or Hostage was found.
-    logging.getLogger("reid").info(f"hostage img shape {hostage_img.shape}.")
-    logging.getLogger("reid").info(f"suspect img shape {suspect_img.shape}.")
-    logging.getLogger("reid").info(f"robot's photo shape {img.shape}.")
+    reid_log.info(f"hostage img shape {hostage_img.shape}.")
+    reid_log.info(f"suspect img shape {suspect_img.shape}.")
+    reid_log.info(f"robot's photo shape {img.shape}.")
 
     sus_bbox = reid_service.targets_from_image(img, suspect_img)
     hostage_bbox = reid_service.targets_from_image(img, hostage_img)
-    logging.getLogger("Main").info(f"suspect?: {sus_bbox};\n hostage?: {hostage_bbox}.")
+    main_log.info(f"suspect?: {sus_bbox};\n hostage?: {hostage_bbox}.")
     return sus_bbox, hostage_bbox
 
 
@@ -70,7 +73,7 @@ def take_photo(robot, photo_dir):
     """Get robot to take photo and save it into photo_dir"""
     robot.camera.start_video_stream(display=False, resolution="720p")
     img = robot.camera.read_cv2_image(strategy="newest")
-    logging.getLogger("take_photo").info(f"retrieved photo with shape: {img.shape}.")
+    cam_log.info(f"retrieved photo with shape: {img.shape}.")
     robot.camera.stop_video_stream()  # camera.take_photo doesn't seem to work so we start and stop video stream instead.
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -80,7 +83,7 @@ def take_photo(robot, photo_dir):
             "Could not save image from robot. Check path or file extension."
         )
     else:
-        logging.getLogger("take_photo").info(f"photo saved to {photo_path}")
+        cam_log.info(f"photo saved to {photo_path}")
     return img
 
 
@@ -98,7 +101,7 @@ def identify_speakers(audio_dir: str, speakerid_service):
         )
 
     for fname, speaker_id in speakerid_result.items():
-        logging.getLogger("SpeakerID").info(f"{fname} speaker is {speaker_id}.")
+        sid_log.info(f"{fname} speaker is {speaker_id}.")
     return speakerid_result
 
 
@@ -175,19 +178,17 @@ def main():
         new_loi = RealLocation(x=initial_target_pose[0], y=initial_target_pose[1])
         target_rotation = initial_target_pose[2]
     else:
-        logging.getLogger("Main").error("Bad response from challenge server.")
+        main_log.error("Bad response from challenge server.")
         return
 
     for _ in range(10):
-        logging.getLogger("Main").info(
-            f"Warming up pose filter to reduce initial noise."
-        )
+        main_log.info(f"Warming up pose filter to reduce initial noise.")
         pose = loc_service.get_pose()  # TODO: remove `clues`.
         time.sleep(0.25)
 
         pose = pose_filter.update(pose)
 
-    logging.getLogger("Main").info(f">>>>> Autobot rolling out! <<<<<")
+    main_log.info(f">>>>> Autobot rolling out! <<<<<")
 
     # Main loop
     while True:
@@ -205,9 +206,7 @@ def main():
             print(grid_location, (map_.width, map_.height))
             print(real_location, map_.grid_to_real(mapGridUpperBounds))
             # print(f"{map_.grid_to_real(mapGridLowerBounds)} to {map_.grid_to_real(mapGridUpperBounds)}")
-            logging.getLogger("Main").warning(
-                f"Invalid pose received from localization server."
-            )
+            main_log.warning(f"Invalid pose received from localization server.")
             continue
 
         # TEMP
@@ -223,7 +222,7 @@ def main():
                 elif info == "Task Checkpoint Reached":
                     pass
                 elif info == "Not An Expected Checkpoint":
-                    logging.getLogger("Main").info(
+                    main_log.info(
                         f"Not yet at task checkpoint. status: {res.status}, data: {res.data}, curr pose: {pose}"
                     )
                     # If we reached this execution branch, it means the autonomy code thinks the
@@ -239,13 +238,13 @@ def main():
             elif (
                 type(info) == RealPose
             ):  # robot reached detour checkpoint and received new coordinates to go to.
-                logging.getLogger("Main").info(
+                main_log.info(
                     f"Not goal, not task checkpt. Received a new target pose: {info}."
                 )
 
                 new_loi = RealLocation(x=info[0], y=info[1])
                 target_rotation = info[2]
-                logging.getLogger("Main").info(f"Setting {new_loi} as new LOI.")
+                main_log.info(f"Setting {new_loi} as new LOI.")
                 try_start_tasks = False
             else:
                 raise Exception(f"Unexpected return type: {type(info)}.")
@@ -253,7 +252,7 @@ def main():
             # TEMP
             # try_start_tasks = True
             if try_start_tasks:
-                logging.getLogger("Main").info("===== Starting AI tasks =====")
+                main_log.info("===== Starting AI tasks =====")
 
                 robot.chassis.drive_speed(x=0.0, y=0.0, z=0.0)
                 time.sleep(3)
@@ -304,7 +303,7 @@ def main():
                     cv2.waitKey(1)
                     # continue
 
-                logging.getLogger("Main").info(f"saved received files into {save_path}")
+                main_log.info(f"saved received files into {save_path}")
 
                 ## === SPEAKER IDENTIFICATION - Friend or Foe (Audio) ===
 
@@ -324,15 +323,13 @@ def main():
                             break
 
                 if speakerid_submission is not None:
-                    logging.getLogger("Main").info(
+                    main_log.info(
                         f"submitting {speakerid_submission} to report_audio API."
                     )
                     save_path = rep_service.report_audio(
                         pose, speakerid_submission, Path(ZIP_SAVE_DIR)
                     )
-                    logging.getLogger("Main").info(
-                        f"saved received files into {save_path}"
-                    )
+                    main_log.info(f"saved received files into {save_path}")
                 else:
                     raise Exception("no valid speakerid was found.")
 
@@ -341,19 +338,15 @@ def main():
                 password = tuple([val for _, val in digits_result.items()])
 
                 # submit answer to scoring server and get scoring server's response.
-                logging.getLogger("Main").info(
-                    f"Submitting password {password} to report_digit API."
-                )
+                main_log.info(f"Submitting password {password} to report_digit API.")
                 target_pose = rep_service.report_digit(pose, password)
-                logging.getLogger("Main").info(
-                    f"new target pose received from server: {target_pose}"
-                )
+                main_log.info(f"new target pose received from server: {target_pose}")
 
                 new_loi = RealLocation(x=target_pose[0], y=target_pose[1])
                 target_rotation = target_pose[2]
 
                 try_start_tasks = False
-                logging.getLogger("Main").info(
+                main_log.info(
                     "===== Ending AI tasks. Continuing Navigation to new target pose ======"
                 )
 
@@ -364,7 +357,7 @@ def main():
         # navigator.WASD_loop()
 
     robot.chassis.drive_speed(x=0.0, y=0.0, z=0.0, timeout=0.5)  # set stop for safety
-    logging.getLogger("Main").info("===== Mission Terminated =====")
+    main_log.info("===== Mission Terminated =====")
 
 
 if __name__ == "__main__":

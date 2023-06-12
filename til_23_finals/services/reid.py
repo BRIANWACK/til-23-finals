@@ -13,7 +13,7 @@ from .abstract import AbstractObjectReIDService
 
 __all__ = ["BasicObjectReIDService"]
 
-log = logging.getLogger("ReIDService")
+log = logging.getLogger("ReID")
 logging.getLogger("ultralytics").setLevel(logging.WARNING)
 
 BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
