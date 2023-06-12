@@ -38,3 +38,20 @@ python -m til_23_finals --config cfg/sim_autonomy.yml
 ```sh
 python -m til_23_finals --config cfg/autonomy_cfg.yml
 ```
+
+## ToF
+
+ToF documentation: <https://robomaster-dev.readthedocs.io/en/latest/python_sdk/robomaster.html#module-robomaster.sensor>.
+
+Found a cheatsheet that claims the distances are left, right, front and back: <https://github.com/ThePBone/RobomasterCheatsheet#callback>. Cheatsheet also links to example usage.
+
+```py
+# Current distances of left, right, front and back.
+cur_dist_lrfb = [left, right, front, back]
+
+def update_dist(dists):
+    nonlocal cur_dist
+    cur_dist = dists
+
+robot.sensor.sub_distance(freq=1, callback=update_dist)
+```
