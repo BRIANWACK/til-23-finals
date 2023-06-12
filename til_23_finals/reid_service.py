@@ -5,11 +5,12 @@ import logging
 import os
 
 import torch
-from abstract_ai_services import AbstractObjectReIDService
 from til_23_cv import ReIDEncoder, cos_sim, thres_strategy_naive
 from tilsdk.cv.types import BoundingBox
 from ultralytics import YOLO
 from ultralytics.yolo.engine.results import Results
+
+from .abstract_ai_services import AbstractObjectReIDService
 
 log = logging.getLogger("ReIDService")
 logging.getLogger("ultralytics").setLevel(logging.WARNING)

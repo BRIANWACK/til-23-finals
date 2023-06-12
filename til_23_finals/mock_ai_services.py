@@ -1,12 +1,13 @@
 from typing import List, Tuple
 
 import numpy as np
-from abstract_ai_services import (
+from tilsdk.cv.types import *
+
+from .abstract_ai_services import (
     AbstractDigitDetectionService,
     AbstractObjectReIDService,
     AbstractSpeakerIDService,
 )
-from tilsdk.cv.types import *
 
 
 class MockDigitDetectionService(AbstractDigitDetectionService):

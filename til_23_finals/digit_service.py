@@ -5,8 +5,9 @@ import re
 import librosa
 import torch
 import whisper
-from abstract_ai_services import AbstractDigitDetectionService
 from til_23_asr import VoiceExtractor
+
+from .abstract_ai_services import AbstractDigitDetectionService
 
 WHISPER_SAMPLE_RATE = 16000
 BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"

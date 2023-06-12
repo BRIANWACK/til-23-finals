@@ -3,17 +3,18 @@ import time
 
 import cv2
 import imutils
-from planner import (  # Exceptions for path planning.
-    InvalidStartException,
-    NoPathFoundException,
-    Planner,
-)
 
 # Import necessary and useful things from til2023 SDK
 from tilsdk import *  # import the SDK
 from tilsdk.utilities import (  # import optional useful things
     PIDController,
     SimpleMovingAverage,
+)
+
+from .planner import (  # Exceptions for path planning.
+    InvalidStartException,
+    NoPathFoundException,
+    Planner,
 )
 
 # === Initialize movement controller ===
@@ -24,6 +25,7 @@ controller = PIDController(
 # === Initialize pose filter to smooth out noisy pose data ===
 pose_filter = SimpleMovingAverage(n=3)  # Smoothens out noisy localization data.
 
+
 def get_pose(loc_service, pose_filter):
     pose = loc_service.get_pose()
 
@@ -33,10 +35,12 @@ def get_pose(loc_service, pose_filter):
 
     return pose_filter.update(pose)
 
+
 def plan_path(planner, start: list, goal):
     current_coord = RealLocation(x=start[0], y=start[1])
     path = planner.plan(current_coord, goal)
     return path
+
 
 def ang_difference(ang1, ang2):
     """
@@ -54,12 +58,14 @@ def ang_difference(ang1, ang2):
         ang_diff -= 360
     return ang_diff
 
+
 def ang_diff_to_wp(pose, curr_wp):
     ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
     ang_diff = ang_difference(ang_to_wp, pose[2])
     return ang_diff
 
-class Navigator():
+
+class Navigator:
     def __init__(self, map_, robot, loc_service, planner, pose_filter, cfg):
         self.map: SignedDistanceGrid = map_
         self.loc_service = loc_service
@@ -75,7 +81,7 @@ class Navigator():
             )
 
         self.robot: Robot = robot
-        
+
         self.VISUALIZE_FLAG = cfg["VISUALIZE_FLAG"]
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
@@ -84,8 +90,24 @@ class Navigator():
         cosTheta = np.cos(np.deg2rad(heading))
         sinTheta = np.sin(np.deg2rad(heading))
         arrowRadius = 10
-        arrowStart = tuple(map(lambda x: int(round(x)), (grid_location.x - arrowRadius*cosTheta, grid_location.y - arrowRadius*sinTheta)))
-        arrowEnd = tuple(map(lambda x: int(round(x)), (grid_location.x + arrowRadius*cosTheta, grid_location.y + arrowRadius*sinTheta)))
+        arrowStart = tuple(
+            map(
+                lambda x: int(round(x)),
+                (
+                    grid_location.x - arrowRadius * cosTheta,
+                    grid_location.y - arrowRadius * sinTheta,
+                ),
+            )
+        )
+        arrowEnd = tuple(
+            map(
+                lambda x: int(round(x)),
+                (
+                    grid_location.x + arrowRadius * cosTheta,
+                    grid_location.y + arrowRadius * sinTheta,
+                ),
+            )
+        )
 
         cv2.arrowedLine(mapMat, arrowStart, arrowEnd, 0, 2, tipLength=0.5)
 
@@ -99,7 +121,7 @@ class Navigator():
             logging.getLogger("Navigation").warn(f"{e}")
             # TODO: find and use another valid start point.
             return
-        
+
         logging.getLogger("Main").info("Path planned.")
 
         while True:
@@ -125,7 +147,9 @@ class Navigator():
                 continue
 
             dist_to_goal = euclidean_distance(last_valid_pose, curr_loi)
-            if round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M:  # Reached checkpoint.
+            if (
+                round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M
+            ):  # Reached checkpoint.
                 logging.getLogger("Navigation").info(
                     f"Reached checkpoint {last_valid_pose[0]:.2f},{last_valid_pose[1]:.2f}"
                 )
@@ -221,7 +245,7 @@ class Navigator():
                     "Did not reach checkpoint and no waypoints left."
                 )
                 raise Exception("Did not reach checkpoint and no waypoints left.")
-            
+
             mapMat = imutils.resize(mapMat, width=600)
             cv2.imshow("Map", mapMat)
 
@@ -229,7 +253,7 @@ class Navigator():
             plt.scatter(grid_location.x, grid_location.y)
             plt.draw()
             plt.pause(0.01)
-            
+
         return curr_wp, prev_loi, curr_loi, try_start_tasks
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
@@ -253,27 +277,27 @@ class Navigator():
             self.drawPose(mapMat, grid_location, pose[2])
 
             key = cv2.waitKey(1)
-            if key == ord('w') or key == ord('W'):
+            if key == ord("w") or key == ord("W"):
                 forward_vel = trans_vel_mag
                 rightward_vel = 0
                 ang_vel = 0
-            elif key == ord('a') or key == ord('A'):
+            elif key == ord("a") or key == ord("A"):
                 forward_vel = 0
                 rightward_vel = -trans_vel_mag
                 ang_vel = 0
-            elif key == ord('s') or key == ord('S'):
+            elif key == ord("s") or key == ord("S"):
                 forward_vel = -trans_vel_mag
                 rightward_vel = 0
                 ang_vel = 0
-            elif key == ord('d') or key == ord('D'):
+            elif key == ord("d") or key == ord("D"):
                 forward_vel = 0
                 rightward_vel = trans_vel_mag
                 ang_vel = 0
-            elif key == ord('q') or key == ord('Q'):
+            elif key == ord("q") or key == ord("Q"):
                 forward_vel = 0
                 rightward_vel = 0
                 ang_vel = -ang_vel_mag
-            elif key == ord('e') or key == ord('E'):
+            elif key == ord("e") or key == ord("E"):
                 forward_vel = 0
                 rightward_vel = 0
                 ang_vel = ang_vel_mag
@@ -295,11 +319,14 @@ class Navigator():
             plt.draw()
             plt.pause(0.01)
 
-            self.robot._modules['DistanceSensor'].sub_distance(freq=1, callback=lambda x: print("TOF", x))
+            self.robot._modules["DistanceSensor"].sub_distance(
+                freq=1, callback=lambda x: print("TOF", x)
+            )
 
             # amplitude = 30
-            # pitch = int(round(amplitude*np.sin(gimbalPhase/180)))        
+            # pitch = int(round(amplitude*np.sin(gimbalPhase/180)))
             # gimbalPhase += 1
             # self.robot.gimbal.moveto(pitch=pitch)
+
 
 # if __name__ == "__main__":

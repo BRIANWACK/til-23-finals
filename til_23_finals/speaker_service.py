@@ -4,11 +4,12 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from abstract_ai_services import AbstractSpeakerIDService
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_asr import VoiceExtractor
 from til_23_cv import cos_sim, thres_strategy_naive
 from torchaudio.functional import resample
+
+from .abstract_ai_services import AbstractSpeakerIDService
 
 BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 

@@ -16,18 +16,19 @@ import cv2
 import imutils
 import yaml
 from librosa import load as load_audio
-from navigation import Navigator, get_pose, plan_path, pose_filter
-
-# Import your code
-from planner import (  # Exceptions for path planning.
-    InvalidStartException,
-    NoPathFoundException,
-    Planner,
-)
 
 # Import necessary and useful things from til2023 SDK
 from tilsdk import *  # import the SDK
 from tilsdk.reporting import save_zip  # to handle embedded zip file in flask response
+
+from .navigation import Navigator, get_pose, plan_path, pose_filter
+
+# Import your code
+from .planner import (  # Exceptions for path planning.
+    InvalidStartException,
+    NoPathFoundException,
+    Planner,
+)
 
 # Setup logging in a nice readable format
 logging.basicConfig(
@@ -355,7 +356,7 @@ def main():
                 logging.getLogger("Main").info(
                     "===== Ending AI tasks. Continuing Navigation to new target pose ======"
                 )
-        
+
         # Navigation loop.
         navigator.navigation_loop(last_valid_pose, new_loi, target_rotation)
 
@@ -383,15 +384,15 @@ if __name__ == "__main__":
         cfg = yaml.safe_load(f)
 
         if cfg["use_real_models"] == True:
-            from mock_ai_services import MockDigitDetectionService
-            from reid_service import BasicObjectReIDService
-            from speaker_service import NeMoSpeakerIDService
+            from .digit_service import WhisperDigitDetectionService
+            from .reid_service import BasicObjectReIDService
+            from .speaker_service import NeMoSpeakerIDService
 
             REID_SERVICE = BasicObjectReIDService
             SPEAKER_SERVICE = NeMoSpeakerIDService
-            DIGIT_SERVICE = MockDigitDetectionService
+            DIGIT_SERVICE = WhisperDigitDetectionService
         else:
-            from mock_ai_services import (
+            from .mock_ai_services import (
                 MockDigitDetectionService,
                 MockObjectReIDService,
                 MockSpeakerIDService,
