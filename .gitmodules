@@ -4,3 +4,6 @@
 [submodule "til-23-sdk2"]
 	path = til-23-sdk2
 	url = https://github.com/BRIANWACK/til-23-sdk2.git
+[submodule "til-23-asr"]
+	path = til-23-asr
+	url = https://github.com/BRIANWACK/til-23-asr.git

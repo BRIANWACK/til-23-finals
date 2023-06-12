@@ -11,6 +11,7 @@ git submodule update --init --recursive
 pip install -r requirements.txt
 pip install -e ./til-23-cv
 pip install -e ./til-23-sdk2
+pip install -e ./til-23-asr
 pip install -e ./til-23-cv/ultralytics
 ```
 
