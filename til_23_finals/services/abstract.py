@@ -6,6 +6,12 @@ from typing import Tuple, Union
 import numpy as np
 from tilsdk.cv.types import BoundingBox
 
+__all__ = [
+    "AbstractSpeakerIDService",
+    "AbstractDigitDetectionService",
+    "AbstractObjectReIDService",
+]
+
 
 class AbstractDigitDetectionService(ABC):
     """Interface for Digit Detection.
@@ -22,10 +28,10 @@ class AbstractDigitDetectionService(ABC):
         model_dir : str
             Path of model file to load.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
-    def transcribe_audio_to_digits(self, audio_waveform: np.ndarray) -> Tuple[int]:
+    def transcribe_audio_to_digits(self, audio_waveform: np.ndarray) -> Tuple[int, ...]:
         """Transcribe audio waveform to a tuple of ints.
 
         Parameters
@@ -36,10 +42,10 @@ class AbstractDigitDetectionService(ABC):
 
         Returns
         -------
-        results : Tuple[int]
+        results : Tuple[int, ...]
             The ordered tuple of digits found in the input audio file.
         """
-        pass
+        raise NotImplementedError
 
 
 class AbstractObjectReIDService(ABC):
@@ -97,7 +103,7 @@ class AbstractSpeakerIDService(ABC):
         model_dir : str
             Path of model file to load.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
@@ -115,4 +121,4 @@ class AbstractSpeakerIDService(ABC):
         result : str
             string representing the speaker's ID corresponding to the list of speaker IDs in the training data set.
         """
-        pass
+        raise NotImplementedError

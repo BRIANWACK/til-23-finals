@@ -1,4 +1,4 @@
-"""AI Services."""
+"""AI services."""
 
 from .digit import *
 from .reid import *

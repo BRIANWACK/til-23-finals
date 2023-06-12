@@ -18,7 +18,7 @@ BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 class WhisperDigitDetectionService(AbstractDigitDetectionService):
     """Digit Detection service using OpenAI's Whisper."""
 
-    def __init__(self, model_dir: str, device=BEST_DEVICE):
+    def __init__(self, model_dir, device=BEST_DEVICE):
         """Initialize WhisperDigitDetectionService.
 
         Parameters

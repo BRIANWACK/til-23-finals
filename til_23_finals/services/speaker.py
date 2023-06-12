@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import numpy as np
 import torch
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_asr import VoiceExtractor
@@ -22,7 +21,7 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
     model_sr = 16000
     id_thres = 0.2
 
-    def __init__(self, model_dir: str, speaker_dir: str = "", device=BEST_DEVICE):
+    def __init__(self, model_dir, speaker_dir="", device=BEST_DEVICE):
         """Initialize NeMoSpeakerIDService.
 
         Parameters
@@ -55,7 +54,7 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
 
     # TODO: Modify abstract interface to accept filepath instead of waveform for convenience.
     # TODO: Ability to exclude speaker ids if sure our team's speaker is already identified.
-    def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
+    def identify_speaker(self, audio_waveform, sampling_rate):
         """Identify the speaker in the audio file.
 
         Parameters

@@ -8,7 +8,6 @@ import torch
 from til_23_cv import ReIDEncoder, cos_sim, thres_strategy_naive
 from tilsdk.cv.types import BoundingBox
 from ultralytics import YOLO
-from ultralytics.yolo.engine.results import Results
 
 from .abstract import AbstractObjectReIDService
 
@@ -90,7 +89,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
 
         h, w = scene_img.shape[:2]
 
-        res: Results = self.yolo.predict(
+        res = self.yolo.predict(
             scene_img,
             conf=self.det_conf_thres,
             iou=self.det_iou_thres,
