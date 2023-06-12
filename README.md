@@ -20,5 +20,5 @@ conda install sox libsndfile ffmpeg -c conda-forge
 ```
 
 ```sh
-python til_23_finals/autonomy_starter.py --config cfg/autonomy_cfg.yml
+python -m til_23_finals --config cfg/autonomy_cfg.yml
 ```

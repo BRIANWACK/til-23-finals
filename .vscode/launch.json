@@ -8,8 +8,7 @@
       "name": "Run Robot",
       "type": "python",
       "request": "launch",
-      "program": "til_23_finals/autonomy_starter.py",
-      "console": "integratedTerminal",
+      "module": "til_23_finals",
       "args": ["--config", "cfg/autonomy_cfg.yml"],
       "justMyCode": true
     }
