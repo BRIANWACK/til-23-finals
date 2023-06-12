@@ -16,6 +16,7 @@ pip install -e ./til-23-cv/ultralytics
 ```
 
 ```sh
+# OPTIONAL: We do not rely on NeMo's loading code at all.
 conda install sox libsndfile ffmpeg -c conda-forge
 ```
 

@@ -1,8 +1,11 @@
-# SAMPLE AUTONOMY CODE FOR TIL2023. This is not the most optimal solution.
-# However, it is a fully-running codebase with major integrations done for you
-# already so that you can concentrate more on improving your algorithms and models
-# and less on integration work. Participants are free to modify any thing in the
-# "stubs" folder. You do not need to modify the "src" folder. Have fun!
+"""SAMPLE AUTONOMY CODE FOR TIL2023.
+
+This is not the most optimal solution. However, it is a fully-running codebase
+with major integrations done for you already so that you can concentrate more on
+improving your algorithms and models and less on integration work. Participants
+are free to modify any thing in the "stubs" folder. You do not need to modify the
+"src" folder. Have fun!
+"""
 
 import argparse
 import logging
@@ -10,10 +13,11 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Tuple
 
 import cv2
 import imutils
+import numpy as np
 import yaml
 from librosa import load as load_audio
 
@@ -44,7 +48,19 @@ cam_log = logging.getLogger("Cam")
 
 
 ##### HELPER FUNCTIONS #####
-def load_audio_from_dir(save_path: str):
+def load_audio_from_dir(save_path: str) -> Dict[str, Tuple[np.ndarray, float]]:
+    """Load audio files from a directory.
+
+    Parameters
+    ----------
+    save_path : str
+        Path to directory containing audio files.
+
+    Returns
+    -------
+    audio_dict : Dict[str, Tuple[np.ndarray, int]]
+        Key is the filename ("audio1.wav") and value is a tuple of the audio and sampling rate.
+    """
     audio_dict = {}
     for item in os.scandir(save_path):
         if item.is_file() and item.name.endswith(".wav"):
@@ -54,11 +70,11 @@ def load_audio_from_dir(save_path: str):
             audio_dict[item.name] = load_audio(
                 audio_fpath, sr=16000
             )  # returns audio waveform, sampling rate.
-    return audio_dict  # e.g. {'audio1.wav': <return type of librosa.load>}
+    return audio_dict
 
 
 def reid(reid_service, hostage_img, suspect_img, img):
-    # pass image to re-id service, check whether Suspect or Hostage was found.
+    """Use reid service to identify whether hostage or suspect is in the image."""
     reid_log.info(f"hostage img shape {hostage_img.shape}.")
     reid_log.info(f"suspect img shape {suspect_img.shape}.")
     reid_log.info(f"robot's photo shape {img.shape}.")
@@ -70,7 +86,7 @@ def reid(reid_service, hostage_img, suspect_img, img):
 
 
 def take_photo(robot, photo_dir):
-    """Get robot to take photo and save it into photo_dir"""
+    """Get robot to take photo and save it into photo_dir."""
     robot.camera.start_video_stream(display=False, resolution="720p")
     img = robot.camera.read_cv2_image(strategy="newest")
     cam_log.info(f"retrieved photo with shape: {img.shape}.")
@@ -88,9 +104,7 @@ def take_photo(robot, photo_dir):
 
 
 def identify_speakers(audio_dir: str, speakerid_service):
-    """Use your speaker id model to identify speaker of each audio file in audio_dir
-    Returns a dict that maps filename to speakerid.
-    """
+    """Identify speakers from audio files in audio_dir."""
     audio_dict = load_audio_from_dir(audio_dir)
 
     speakerid_result = {}
@@ -106,6 +120,7 @@ def identify_speakers(audio_dir: str, speakerid_service):
 
 
 def detect_digits(digit_detection_service, audio_dir: str):
+    """Detect digits from audio files in audio_dir."""
     digits_result = {}
     audio_dict = load_audio_from_dir(audio_dir)
     sorted_fnames = sorted(audio_dict.keys())
@@ -121,6 +136,7 @@ def detect_digits(digit_detection_service, audio_dir: str):
 
 # Implement core robot loop here.
 def main():
+    """Run main loop."""
     # === Initialize admin services ===
     loc_service = LocalizationService(
         host=LOCALIZATION_SERVER_IP, port=LOCALIZATION_SERVER_PORT
