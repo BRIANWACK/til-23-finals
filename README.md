@@ -55,3 +55,44 @@ def update_dist(dists):
 
 robot.sensor.sub_distance(freq=1, callback=update_dist)
 ```
+
+## Calculate Requirements
+
+`til-23-sdk` and its dependencies should be excluded from the requirements calculation. Requirements should be stripped down only to linux platform dependencies.
+
+Comment out this line:
+
+```toml
+[tool.poetry.dependencies]
+python = ">=3.8,<3.9"
+# Comment out below:
+# til-23-sdk = {path = "til-23-sdk2", develop = true}
+til-23-cv = {path = "til-23-cv", develop = true}
+til-23-asr = {path = "til-23-asr", develop = true}
+nemo-toolkit = {extras = ["asr"], version = "^1.18.1"}
+robomaster = "^0.1.1.68"
+imutils = "^0.5.4"
+```
+
+Then run (changes to the lockfile should be reverted after):
+
+```sh
+poetry lock --no-update
+poetry export --without-hashes -f requirements.txt -o requirements-no-sdk.txt
+```
+
+Then search for and remove requirements that contain the following:
+
+- `file:`
+- `platform_system == "Windows"`
+- `platform_system == "Darwin"`
+- `sys_platform == "win32"`
+- `sys_platform == "darwin"`
+
+Finally:
+
+```sh
+pip wheel -r requirements-no-sdk.txt -w whls
+```
+
+You may also choose to remove all `; python_version >= "3.8" and python_version < "3.9"`.
