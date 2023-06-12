@@ -141,6 +141,7 @@ def main():
     robot = Robot()
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="chassis_lead")
+    robot.gimbal.recenter()
 
     # === Initialize planner ===
     map_: SignedDistanceGrid = loc_service.get_map()
@@ -158,7 +159,6 @@ def main():
     path: List[
         RealLocation
     ] = []  # list of way points to get from starting location to location of interest.
-    curr_wp: RealLocation = None
     new_loi = None  # new RealLocation received from Reporting Server.
     target_rotation = None  # a bearing between [-180, 180]
     prev_loi = new_loi
@@ -183,6 +183,7 @@ def main():
         )
         pose = loc_service.get_pose()  # TODO: remove `clues`.
         time.sleep(0.25)
+
         pose = pose_filter.update(pose)
 
     logging.getLogger("Main").info(f">>>>> Autobot rolling out! <<<<<")
@@ -197,6 +198,12 @@ def main():
         if map_.in_bounds(grid_location) and map_.passable(grid_location):
             last_valid_pose = pose
         else:
+            mapGridUpperBounds = GridLocation(map_.width, map_.height)
+            # mapGridLowerBounds = GridLocation(0, 0)
+
+            print(grid_location, (map_.width, map_.height))
+            print(real_location, map_.grid_to_real(mapGridUpperBounds))
+            # print(f"{map_.grid_to_real(mapGridLowerBounds)} to {map_.grid_to_real(mapGridUpperBounds)}")
             logging.getLogger("Main").warning(
                 f"Invalid pose received from localization server."
             )
@@ -400,11 +407,11 @@ if __name__ == "__main__":
 
         VISUALIZE = cfg["VISUALIZE_FLAG"]
 
-        SCORE_SERVER_IP = "172.16.18.20"
-        SCORE_SERVER_PORT = 5512
-        LOCALIZATION_SERVER_IP = "172.16.18.20"
-        LOCALIZATION_SERVER_PORT = 5577
-        ROBOT_IP = "172.16.18.140"
+        SCORE_SERVER_IP = cfg["SCORE_SERVER_IP"]
+        SCORE_SERVER_PORT = cfg["SCORE_SERVER_PORT"]
+        LOCALIZATION_SERVER_IP = cfg["LOCALIZATION_SERVER_IP"]
+        LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
+        ROBOT_IP = cfg["ROBOT_IP"]
 
         REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
@@ -414,10 +421,6 @@ if __name__ == "__main__":
         REID_MODEL_DIR = cfg["REID_MODEL_DIR"]
         SPEAKER_ID_MODEL_DIR = cfg["SPEAKER_ID_MODEL_DIR"]
         PHOTO_DIR = cfg["PHOTO_DIR"]
-
-        STUCK_THRESHOLD = cfg[
-            "STUCK_THRESHOLD"
-        ]  # number of iterations to consider robot as stuck on one waypoint.
 
         ZIP_SAVE_DIR = cfg["ZIP_SAVE_DIR"]
 

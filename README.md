@@ -15,7 +15,7 @@ pip install -e ./til-23-cv/ultralytics
 ```
 
 ```sh
-conda install sox libsndfile ffmpeg
+conda install sox libsndfile ffmpeg -c conda-forge
 ```
 
 ```sh

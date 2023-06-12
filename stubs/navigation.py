@@ -80,6 +80,15 @@ class Navigator():
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
 
+    def drawPose(self, mapMat, grid_location, heading):
+        cosTheta = np.cos(np.deg2rad(heading))
+        sinTheta = np.sin(np.deg2rad(heading))
+        arrowRadius = 10
+        arrowStart = tuple(map(lambda x: int(round(x)), (grid_location.x - arrowRadius*cosTheta, grid_location.y - arrowRadius*sinTheta)))
+        arrowEnd = tuple(map(lambda x: int(round(x)), (grid_location.x + arrowRadius*cosTheta, grid_location.y + arrowRadius*sinTheta)))
+
+        cv2.arrowedLine(mapMat, arrowStart, arrowEnd, 0, 2, tipLength=0.5)
+
     def navigation_loop(self, last_valid_pose, curr_loi, target_rotation):
         try:
             path = plan_path(
@@ -103,14 +112,8 @@ class Navigator():
 
             # TODO: Add visualization code here.
             if self.VISUALIZE_FLAG:
-                plt.ion()
-                plt.scatter(real_location.x, real_location.y)
-                plt.draw()
-                plt.pause(0.01)
-
-                mapMat = imutils.resize(self.map.grid, width=600)
-                cv2.circle(mapMat, (grid_location.x * 2, grid_location.y * 2), 20, 0, -1)
-                cv2.imshow("Map", mapMat)
+                mapMat = self.map.grid.copy()
+                self.drawPose(mapMat, grid_location, pose[2])
                 cv2.waitKey(1)
 
             if self.map.in_bounds(grid_location) and self.map.passable(grid_location):
@@ -168,6 +171,10 @@ class Navigator():
             elif path:
                 curr_wp = path[0]  # nearest waypoint is at the start of list.
 
+                if self.VISUALIZE_FLAG:
+                    curr_wp_grid = self.map.real_to_grid(curr_wp)
+                    cv2.circle(mapMat, (curr_wp_grid.x, curr_wp_grid.y), 5, 0, -1)
+
                 logging.getLogger("Navigation").info(f"Num wps left: {len(path)}")
 
                 dist_to_wp = euclidean_distance(real_location, curr_wp)
@@ -215,24 +222,84 @@ class Navigator():
                 )
                 raise Exception("Did not reach checkpoint and no waypoints left.")
             
+            mapMat = imutils.resize(mapMat, width=600)
+            cv2.imshow("Map", mapMat)
+
+            plt.ion()
+            plt.scatter(grid_location.x, grid_location.y)
+            plt.draw()
+            plt.pause(0.01)
+            
         return curr_wp, prev_loi, curr_loi, try_start_tasks
 
-    def WASD_loop(self, delay=5, forward_vel=0.1, ang_vel=5):
-        key = cv2.waitKey(delay)
-        if key == ord('w') or key == ord('W'):
-            self.robot.chassis.drive_speed(x=forward_vel)
-        elif key == ord('a') or key == ord('A'):
-            self.robot.chassis.drive_speed(y=-forward_vel)
-        elif key == ord('s') or key == ord('S'):
-            self.robot.chassis.drive_speed(x=-forward_vel)
-        elif key == ord('d') or key == ord('D'):
-            self.robot.chassis.drive_speed(y=forward_vel)
-        elif key == ord('q') or key == ord('Q'):
-            self.robot.chassis.drive_speed(z=-ang_vel)
-        elif key == ord('e') or key == ord('E'):
-            self.robot.chassis.drive_speed(z=ang_vel)
-        else:
-            self.robot.chassis.drive_speed()
+    def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
+        forward_vel = 0
+        rightward_vel = 0
+        ang_vel = 0
+
+        # gimbalPhase = 0
+        # self.robot.gimbal.recenter()
+
+        while True:
+            pose = get_pose(self.loc_service, pose_filter)
+            print(pose)
+            if pose is None:
+                continue
+
+            real_location = RealLocation(x=pose[0], y=pose[1])
+            grid_location = self.map.real_to_grid(real_location)
+
+            mapMat = self.map.grid.copy()
+            self.drawPose(mapMat, grid_location, pose[2])
+
+            key = cv2.waitKey(1)
+            if key == ord('w') or key == ord('W'):
+                forward_vel = trans_vel_mag
+                rightward_vel = 0
+                ang_vel = 0
+            elif key == ord('a') or key == ord('A'):
+                forward_vel = 0
+                rightward_vel = -trans_vel_mag
+                ang_vel = 0
+            elif key == ord('s') or key == ord('S'):
+                forward_vel = -trans_vel_mag
+                rightward_vel = 0
+                ang_vel = 0
+            elif key == ord('d') or key == ord('D'):
+                forward_vel = 0
+                rightward_vel = trans_vel_mag
+                ang_vel = 0
+            elif key == ord('q') or key == ord('Q'):
+                forward_vel = 0
+                rightward_vel = 0
+                ang_vel = -ang_vel_mag
+            elif key == ord('e') or key == ord('E'):
+                forward_vel = 0
+                rightward_vel = 0
+                ang_vel = ang_vel_mag
+            elif key == 27:
+                cv2.destroyAllWindows()
+                break
+            else:
+                forward_vel = 0
+                rightward_vel = 0
+                ang_vel = 0
+
+            self.robot.chassis.drive_speed(x=forward_vel, y=rightward_vel, z=ang_vel)
+
+            mapMat = imutils.resize(mapMat, width=600)
+            cv2.imshow("Map", mapMat)
+
+            plt.ion()
+            plt.scatter(grid_location.x, grid_location.y)
+            plt.draw()
+            plt.pause(0.01)
+
+            self.robot._modules['DistanceSensor'].sub_distance(freq=1, callback=lambda x: print("TOF", x))
+
+            # amplitude = 30
+            # pitch = int(round(amplitude*np.sin(gimbalPhase/180)))        
+            # gimbalPhase += 1
+            # self.robot.gimbal.moveto(pitch=pitch)
 
 # if __name__ == "__main__":
-    

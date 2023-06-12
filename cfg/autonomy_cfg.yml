@@ -1,7 +1,7 @@
 # Set to false to use the provided mock models.
 # Set to true to use your own models, but the organizing team does NOT
 # provide real model implementations - you have to integrate them in.
-use_real_models: true
+use_real_models: false
 
 # Use real localization server (physical localization server and real robot)
 # or simulated localization server (til-simulator and mock robomaster).
@@ -42,3 +42,9 @@ REID_MODEL_DIR: models/reid.pt
 SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
 
 VISUALIZE_FLAG: true
+
+SCORE_SERVER_IP: 172.16.118.20
+SCORE_SERVER_PORT: 5511
+LOCALIZATION_SERVER_IP: 172.16.118.20
+LOCALIZATION_SERVER_PORT: 5576
+ROBOT_IP: 172.16.118.150
