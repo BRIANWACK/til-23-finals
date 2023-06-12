@@ -5,10 +5,11 @@ import logging
 import os
 
 import torch
-from til_23_cv import ReIDEncoder, cos_sim, thres_strategy_naive
+from til_23_cv import ReIDEncoder
 from tilsdk.cv.types import BoundingBox
 from ultralytics import YOLO
 
+from ..utils import cos_sim, thres_strategy_naive
 from .abstract import AbstractObjectReIDService
 
 __all__ = ["BasicObjectReIDService"]

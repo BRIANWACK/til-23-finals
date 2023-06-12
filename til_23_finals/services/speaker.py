@@ -5,9 +5,9 @@ from pathlib import Path
 import torch
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_asr import VoiceExtractor
-from til_23_cv import cos_sim, thres_strategy_naive
 from torchaudio.functional import resample
 
+from ..utils import cos_sim, thres_strategy_naive
 from .abstract import AbstractSpeakerIDService
 
 __all__ = ["NeMoSpeakerIDService"]
