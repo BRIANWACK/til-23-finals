@@ -12,9 +12,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
+import cv2
 import imutils
 import yaml
 from librosa import load as load_audio
+from navigation import Navigator, get_pose, plan_path, pose_filter
 
 # Import your code
 from planner import (  # Exceptions for path planning.
@@ -26,10 +28,6 @@ from planner import (  # Exceptions for path planning.
 # Import necessary and useful things from til2023 SDK
 from tilsdk import *  # import the SDK
 from tilsdk.reporting import save_zip  # to handle embedded zip file in flask response
-from tilsdk.utilities import (  # import optional useful things
-    PIDController,
-    SimpleMovingAverage,
-)
 
 # Setup logging in a nice readable format
 logging.basicConfig(
@@ -37,7 +35,6 @@ logging.basicConfig(
     format="[%(levelname)5s][%(asctime)s][%(name)s]: %(message)s",
     datefmt="%H:%M:%S",
 )
-
 
 
 ##### HELPER FUNCTIONS #####
@@ -118,44 +115,6 @@ def detect_digits(digit_detection_service, audio_dir: str):
     return digits_result
 
 
-def get_pose(loc_service, pose_filter):
-    pose = loc_service.get_pose()
-
-    if not pose:
-        # no new pose data, continue to next iteration.
-        return None
-
-    return pose_filter.update(pose)
-
-
-def plan_path(planner, start: list, goal):
-    current_coord = RealLocation(x=start[0], y=start[1])
-    path = planner.plan(current_coord, goal)
-    return path
-
-
-def ang_difference(ang1, ang2):
-    """Get angular difference in degrees of two angles in degrees,
-
-    Returns a value in the range [-180, 180].
-    """
-    ang_diff = -(ang1 - ang2)  # body frame
-
-    # ensure ang_diff is in [-180, 180]
-    if ang_diff < -180:
-        ang_diff += 360
-
-    if ang_diff > 180:
-        ang_diff -= 360
-    return ang_diff
-
-
-def ang_diff_to_wp(pose, curr_wp):
-    ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
-    ang_diff = ang_difference(ang_to_wp, pose[2])
-    return ang_diff
-
-
 # Implement core robot loop here.
 def main():
     # === Initialize admin services ===
@@ -194,14 +153,6 @@ def main():
     # bringing robot too close to real obstacles.
     planner = Planner(map_, sdf_weight=0.5)
 
-    # === Initialize movement controller ===
-    controller = PIDController(
-        Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0)
-    )  # this can be tuned.
-
-    # === Initialize pose filter to smooth out noisy pose data ===
-    pose_filter = SimpleMovingAverage(n=3)  # Smoothens out noisy localization data.
-
     # === Initialize your own variables ===
     curr_loi: RealLocation = None  # Current location of interest.
     path: List[
@@ -211,6 +162,8 @@ def main():
     new_loi = None  # new RealLocation received from Reporting Server.
     target_rotation = None  # a bearing between [-180, 180]
     prev_loi = new_loi
+
+    navigator = Navigator(map_, robot, loc_service, planner, pose_filter, cfg)
 
     try_start_tasks = False
 
@@ -395,143 +348,12 @@ def main():
                 logging.getLogger("Main").info(
                     "===== Ending AI tasks. Continuing Navigation to new target pose ======"
                 )
-
-        # Path planning.
-        curr_loi = new_loi
-        curr_wp = None
-
-        try:
-            path = plan_path(
-                planner, last_valid_pose, curr_loi
-            )  ## Ensure only valid start positions are passed to the planner.
-        except InvalidStartException as e:
-            logging.getLogger("Navigation").warn(f"{e}")
-            # TODO: find and use another valid start point.
-            return
-        logging.getLogger("Main").info("Path planned.")
-        # TODO: abstract the path planning and movement code to functions.
-
+        
         # Navigation loop.
-        while True:
-            pose = get_pose(loc_service, pose_filter)
-            if pose is None:
-                continue
+        navigator.navigation_loop(last_valid_pose, new_loi, target_rotation)
 
-            real_location = RealLocation(x=pose[0], y=pose[1])
-            grid_location = map_.real_to_grid(real_location)
-
-            # TODO: Add visualization code here.
-            if VISUALIZE:
-                plt.ion()
-                plt.scatter(real_location.x, real_location.y)
-                plt.draw()
-                plt.pause(0.01)
-
-                mapMat = imutils.resize(map_.grid, width=600)
-                cv2.circle(mapMat, (grid_location.x*2, grid_location.y*2), 20, 0, -1)
-                cv2.imshow("Map", mapMat)
-                cv2.waitKey(1)
-
-            if map_.in_bounds(grid_location) and map_.passable(grid_location):
-                last_valid_pose = pose
-            else:
-                logging.getLogger("Main").warning(
-                    f"Invalid pose received from localization server. Skipping."
-                )
-                continue
-
-            dist_to_goal = euclidean_distance(last_valid_pose, curr_loi)
-            if round(dist_to_goal, 2) <= REACHED_THRESHOLD_M:  # Reached checkpoint.
-                logging.getLogger("Navigation").info(
-                    f"Reached checkpoint {last_valid_pose[0]:.2f},{last_valid_pose[1]:.2f}"
-                )
-                path = []  # flush path.
-                controller.reset()
-
-                # ROTATE ROBOT TO TARGET ORIENTATION.
-                rel_ang = ang_difference(
-                    last_valid_pose[2], target_rotation
-                )  # current heading vs target heading
-                logging.getLogger("Navigation").info(
-                    "Turning robot to face target angle..."
-                )
-                while abs(rel_ang) > 20:
-                    pose = get_pose(loc_service, pose_filter)
-                    rel_ang = ang_difference(
-                        pose[2], target_rotation
-                    )  # current heading vs target heading
-
-                    if rel_ang < -20:
-                        # rotate counter-clockwise
-                        logging.getLogger("Navigation").info(
-                            f"Trying to turn clockwise... ang left: {rel_ang}"
-                        )
-                        robot.chassis.drive_speed(x=0, z=10)
-                    elif rel_ang > 20:
-                        # rotate clockwise
-                        logging.getLogger("Navigation").info(
-                            f"Trying to turn counter-clockwise... ang left: {rel_ang}"
-                        )
-                        robot.chassis.drive_speed(x=0, z=-10)
-                    time.sleep(1)
-                logging.getLogger("Navigation").info(
-                    "Robot should now be facing close to target angle."
-                )
-
-                curr_wp = None
-                prev_loi = curr_loi
-                curr_loi = None
-                try_start_tasks = True  # try to start ai tasks in the next main iter.
-                break
-            elif path:
-                curr_wp = path[0]  # nearest waypoint is at the start of list.
-
-                logging.getLogger("Navigation").info(f"Num wps left: {len(path)}")
-
-                dist_to_wp = euclidean_distance(real_location, curr_wp)
-                if round(dist_to_wp, 2) < REACHED_THRESHOLD_M:
-                    path = path[1:]  # remove the nearest waypoint.
-                    controller.reset()
-                    curr_wp = path[0]
-                    continue  # start navigating to next waypoint.
-
-                pose_str = f"x:{last_valid_pose[0]:.2f}, y:{last_valid_pose[1]:.2f}, rot:{last_valid_pose[2]:.2f}"
-                curr_wp_str = f"{curr_wp[0]:.2f}, {curr_wp[1]:.2f}"
-                curr_loi_str = f"{curr_loi[0]:.2f}, {curr_loi[1]:.2f}"
-                dist_to_wp = euclidean_distance(real_location, curr_wp)
-                logging.getLogger("Navigation").info(
-                    f"Goal: {curr_loi_str}, {target_rotation} \t Pose: {pose_str}"
-                )
-                logging.getLogger("Navigation").info(
-                    f"WP: {curr_wp_str} \t dist_to_wp: {dist_to_wp:.2f}\n"
-                )
-
-                ang_diff = ang_diff_to_wp(last_valid_pose, curr_wp)
-
-                # Move robot until next waypoint is reached.
-                # Determine velocity commands given distance to waypoint and heading to waypoint.
-                vel_cmd = controller.update((dist_to_wp, ang_diff))
-                vel_cmd[0] *= np.cos(
-                    np.radians(ang_diff)
-                )  # reduce forward velocity based on angular difference.
-
-                # If robot is facing the wrong direction, turn to face waypoint first before
-                # moving forward.
-                if abs(ang_diff) > ANGLE_THRESHOLD_DEG:
-                    vel_cmd[0] = 0.0
-
-                forward_vel, ang_vel = vel_cmd[0], vel_cmd[1]
-                logging.getLogger("Control").info(
-                    f"input for final forward speed and rotation speed: {forward_vel:.2f}, {ang_vel:.2f}"
-                )
-
-                robot.chassis.drive_speed(x=forward_vel, z=ang_vel)
-                time.sleep(1)
-            else:
-                logging.getLogger("Navigation").info(
-                    "Did not reach checkpoint and no waypoints left."
-                )
-                raise Exception("Did not reach checkpoint and no waypoints left.")
+        # WASD Control
+        # navigator.WASD_loop()
 
     robot.chassis.drive_speed(x=0.0, y=0.0, z=0.0, timeout=0.5)  # set stop for safety
     logging.getLogger("Main").info("===== Mission Terminated =====")
@@ -576,7 +398,7 @@ if __name__ == "__main__":
                 Robot,  # Use this for simulated robot.
             )
 
-        VISUALIZE = True
+        VISUALIZE = cfg["VISUALIZE_FLAG"]
 
         SCORE_SERVER_IP = "172.16.18.20"
         SCORE_SERVER_PORT = 5512
