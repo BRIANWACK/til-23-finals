@@ -11,6 +11,8 @@ from torchaudio.functional import resample
 
 from .abstract_ai_services import AbstractSpeakerIDService
 
+__all__ = ["NeMoSpeakerIDService"]
+
 BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 

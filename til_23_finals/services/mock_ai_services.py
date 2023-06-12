@@ -9,6 +9,8 @@ from .abstract_ai_services import (
     AbstractSpeakerIDService,
 )
 
+__all__ = ["MockDigitDetectionService", "MockSpeakerIDService", "MockObjectReIDService"]
+
 
 class MockDigitDetectionService(AbstractDigitDetectionService):
     """Implementation of the Digit Detection Service based on Automatic Speech Recognition."""

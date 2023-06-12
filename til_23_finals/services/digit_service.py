@@ -9,6 +9,8 @@ from til_23_asr import VoiceExtractor
 
 from .abstract_ai_services import AbstractDigitDetectionService
 
+__all__ = ["WhisperDigitDetectionService"]
+
 WHISPER_SAMPLE_RATE = 16000
 BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 

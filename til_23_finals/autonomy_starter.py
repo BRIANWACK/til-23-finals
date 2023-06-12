@@ -384,15 +384,17 @@ if __name__ == "__main__":
         cfg = yaml.safe_load(f)
 
         if cfg["use_real_models"] == True:
-            from .digit_service import WhisperDigitDetectionService
-            from .reid_service import BasicObjectReIDService
-            from .speaker_service import NeMoSpeakerIDService
+            from .services import (
+                BasicObjectReIDService,
+                NeMoSpeakerIDService,
+                WhisperDigitDetectionService,
+            )
 
             REID_SERVICE = BasicObjectReIDService
             SPEAKER_SERVICE = NeMoSpeakerIDService
             DIGIT_SERVICE = WhisperDigitDetectionService
         else:
-            from .mock_ai_services import (
+            from .services.mock_ai_services import (
                 MockDigitDetectionService,
                 MockObjectReIDService,
                 MockSpeakerIDService,

@@ -12,6 +12,8 @@ from ultralytics.yolo.engine.results import Results
 
 from .abstract_ai_services import AbstractObjectReIDService
 
+__all__ = ["BasicObjectReIDService"]
+
 log = logging.getLogger("ReIDService")
 logging.getLogger("ultralytics").setLevel(logging.WARNING)
 
