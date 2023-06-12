@@ -9,7 +9,7 @@
       "type": "python",
       "request": "launch",
       "module": "til_23_finals",
-      "args": ["--config", "cfg/autonomy_cfg.yml"],
+      "args": ["--config", "cfg/sim_autonomy.yml"],
       "justMyCode": true
     }
   ]

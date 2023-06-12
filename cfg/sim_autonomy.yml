@@ -1,0 +1,50 @@
+# Set to false to use the provided mock models.
+# Set to true to use your own models, but the organizing team does NOT
+# provide real model implementations - you have to integrate them in.
+use_real_models: false
+
+# Use real localization server (physical localization server and real robot)
+# or simulated localization server (til-simulator and mock robomaster).
+use_real_localization: false
+
+# radius in metres to consider robot as having reached a waypoint/goal.
+# this should be set slightly lower than the server's `local_thres` param.
+REACHED_THRESHOLD_M: 0.2
+
+# angle in degrees between robot's forward vector and heading of waypoint to
+# consider it as having reached the desired angle/heading.
+ANGLE_THRESHOLD_DEG: 20.0
+
+# robot radius, used in path planning.
+ROBOT_RADIUS_M: 0.17
+
+# Directory path to save robot's photos to. if relative path doesn't work, try abs path.
+PHOTO_DIR: temp/imgs
+
+# Directory in which to unzip zipped folders received from scoring server.
+# Use absolute path.
+ZIP_SAVE_DIR: temp
+
+MY_TEAM_NAME: Team-Test-Test
+
+# Images of plushies to Re-ID.
+SUSPECT_IMG: data/arena-session1/1B_suspect.png
+HOSTAGE_IMG: data/arena-session1/1B_hostage.png
+
+# These model paths/directories are not actually being used by the sample code provided.
+# But you are recommened to use such config params to connect your code to ur models.
+NLP_MODEL_DIR: /mnt/d/code/til-23-finals/stubs/digit_detect_utils/model.pt
+
+CV_MODEL_DIR: models/det.pt
+
+REID_MODEL_DIR: models/reid.pt
+
+SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
+
+VISUALIZE_FLAG: true
+
+SCORE_SERVER_IP: localhost
+SCORE_SERVER_PORT: 5501
+LOCALIZATION_SERVER_IP: localhost
+LOCALIZATION_SERVER_PORT: 5566
+ROBOT_IP: 172.16.118.150
