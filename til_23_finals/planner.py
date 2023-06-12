@@ -1,7 +1,14 @@
-import heapq
-from typing import Dict, List, Tuple, TypeVar
+"""Path planning module."""
 
-from tilsdk.localization import *
+import heapq
+from typing import Dict, Generic, List, Tuple, TypeVar
+
+from tilsdk.localization import (
+    GridLocation,
+    RealLocation,
+    SignedDistanceGrid,
+    euclidean_distance,
+)
 
 T = TypeVar("T")
 
@@ -13,31 +20,40 @@ class NoPathFoundException(Exception):
 
 
 class InvalidStartException(NoPathFoundException):
-    """This is a more specific NoPathFoundException arising from an invalid start point, i.e. the
-    start coordinates are either off-map or in obstacles.
+    """Specific NoPathFoundException arising from an invalid start point.
+
+    For example, if the start coordinates are either off-map or in obstacles.
     """
 
     pass
 
 
-class PriorityQueue:
+class PriorityQueue(Generic[T]):
+    """Priority queue implementation."""
+
     # A priority queue where the smaller the value, the higher the priority.
     def __init__(self):
         self.elements: List[Tuple[float, T]] = []
 
     def is_empty(self) -> bool:
+        """Return True if queue is empty."""
         return not self.elements
 
     def put(self, item: T, priority: float):
+        """Push item into queue with priority."""
         heapq.heappush(self.elements, (priority, item))
 
     def get(self) -> T:
+        """Pop item with highest priority from queue."""
         return heapq.heappop(self.elements)[1]
 
 
 class Planner:
+    """Path planner."""
+
     def __init__(self, map_: SignedDistanceGrid = None, sdf_weight: float = 0.0):
-        """
+        """Initialize planner.
+
         Parameters
         ----------
         map : SignedDistanceGrid
@@ -53,7 +69,7 @@ class Planner:
         self.map = map
 
     def heuristic(self, a: GridLocation, b: GridLocation) -> float:
-        """heuristic function for A* pathfinding.
+        """Heuristic function for A* pathfinding.
 
         Parameters
         ----------
@@ -88,7 +104,8 @@ class Planner:
         return [self.map.grid_to_real(wp) for wp in path]
 
     def is_valid_position(self, start: GridLocation):
-        """Checks if discrete position of robot is valid with respect to map layout.
+        """Check if discrete position of robot is valid with respect to map layout.
+
         Returns False when grid location is out of map, or collides with obstacles.
         """
         if self.map.in_bounds(start) and self.map.passable(start):
@@ -116,17 +133,15 @@ class Planner:
         NoPathFoundException
             When there is no path from `start` to `goal` and no InvalidStartException.
         InvalidStartException
-            When
-
+            When `start` is not a valid position.
         """
-
         if not self.map:
             raise RuntimeError("Planner map is not initialized.")
 
         if not self.is_valid_position(start):
             raise InvalidStartException
 
-        frontier = PriorityQueue()
+        frontier: PriorityQueue[GridLocation] = PriorityQueue()
         frontier.put(start, 0)
         came_from: Dict[GridLocation, GridLocation] = {}
         cost_so_far: Dict[GridLocation, float] = {}
@@ -163,7 +178,7 @@ class Planner:
         start: GridLocation,
         goal: GridLocation,
     ) -> List[GridLocation]:
-        """Traces traversed locations to reconstruct path.
+        """Trace traversed locations to reconstruct path.
 
         Parameters
         ----------
@@ -179,7 +194,6 @@ class Planner:
         path
             List of GridLocation from start to goal.
         """
-
         current: GridLocation = goal
         path: List[GridLocation] = []
 

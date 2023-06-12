@@ -1,3 +1,5 @@
+"""Navigation code."""
+
 import logging
 import time
 
@@ -29,6 +31,7 @@ ctrl_log = logging.getLogger("Ctrl")
 
 
 def get_pose(loc_service, pose_filter):
+    """Get filtered pose."""
     pose = loc_service.get_pose()
     # no new pose data, continue to next iteration.
     if not pose:
@@ -37,14 +40,14 @@ def get_pose(loc_service, pose_filter):
 
 
 def plan_path(planner, start: list, goal):
+    """Plan path."""
     current_coord = RealLocation(x=start[0], y=start[1])
     path = planner.plan(current_coord, goal)
     return path
 
 
 def ang_difference(ang1, ang2):
-    """
-    Get angular difference in degrees of two angles in degrees,
+    """Get angular difference in degrees of two angles in degrees.
 
     Returns a value in the range [-180, 180].
     """
@@ -60,12 +63,15 @@ def ang_difference(ang1, ang2):
 
 
 def ang_diff_to_wp(pose, curr_wp):
+    """Get angular difference in degrees of current pose to current waypoint."""
     ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
     ang_diff = ang_difference(ang_to_wp, pose[2])
     return ang_diff
 
 
 class Navigator:
+    """Navigator class."""
+
     def __init__(self, map_, robot, loc_service, planner, pose_filter, cfg):
         self.map: SignedDistanceGrid = map_
         self.loc_service = loc_service
@@ -88,6 +94,7 @@ class Navigator:
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
 
     def drawPose(self, mapMat, grid_location, heading):
+        """Draw pose on map."""
         cosTheta = np.cos(np.deg2rad(heading))
         sinTheta = np.sin(np.deg2rad(heading))
         arrowRadius = 10
@@ -113,6 +120,7 @@ class Navigator:
         cv2.arrowedLine(mapMat, arrowStart, arrowEnd, 0, 2, tipLength=0.5)
 
     def navigation_loop(self, last_valid_pose, curr_loi, target_rotation):
+        """Run navigation loop."""
         try:
             path = plan_path(
                 self.planner, last_valid_pose, curr_loi
@@ -248,6 +256,7 @@ class Navigator:
         return curr_wp, prev_loi, curr_loi, try_start_tasks
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
+        """Run manual control loop using WASD keys."""
         forward_vel = 0
         rightward_vel = 0
         ang_vel = 0
