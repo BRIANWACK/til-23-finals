@@ -394,7 +394,7 @@ if __name__ == "__main__":
             SPEAKER_SERVICE = NeMoSpeakerIDService
             DIGIT_SERVICE = WhisperDigitDetectionService
         else:
-            from .services.mock_ai_services import (
+            from .services.mock import (
                 MockDigitDetectionService,
                 MockObjectReIDService,
                 MockSpeakerIDService,

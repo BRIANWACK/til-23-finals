@@ -7,7 +7,7 @@ import torch
 import whisper
 from til_23_asr import VoiceExtractor
 
-from .abstract_ai_services import AbstractDigitDetectionService
+from .abstract import AbstractDigitDetectionService
 
 __all__ = ["WhisperDigitDetectionService"]
 

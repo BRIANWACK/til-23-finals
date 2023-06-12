@@ -1,5 +1,5 @@
 """AI Services."""
 
-from .digit_service import *
-from .reid_service import *
-from .speaker_service import *
+from .digit import *
+from .reid import *
+from .speaker import *

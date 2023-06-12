@@ -10,7 +10,7 @@ from tilsdk.cv.types import BoundingBox
 from ultralytics import YOLO
 from ultralytics.yolo.engine.results import Results
 
-from .abstract_ai_services import AbstractObjectReIDService
+from .abstract import AbstractObjectReIDService
 
 __all__ = ["BasicObjectReIDService"]
 

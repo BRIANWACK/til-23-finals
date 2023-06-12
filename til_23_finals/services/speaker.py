@@ -9,7 +9,7 @@ from til_23_asr import VoiceExtractor
 from til_23_cv import cos_sim, thres_strategy_naive
 from torchaudio.functional import resample
 
-from .abstract_ai_services import AbstractSpeakerIDService
+from .abstract import AbstractSpeakerIDService
 
 __all__ = ["NeMoSpeakerIDService"]
 

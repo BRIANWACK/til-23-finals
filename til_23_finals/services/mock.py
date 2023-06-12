@@ -3,7 +3,7 @@ from typing import List, Tuple
 import numpy as np
 from tilsdk.cv.types import *
 
-from .abstract_ai_services import (
+from .abstract import (
     AbstractDigitDetectionService,
     AbstractObjectReIDService,
     AbstractSpeakerIDService,
