@@ -29,6 +29,9 @@ conda install sox libsndfile ffmpeg -c conda-forge
 ## Run
 
 ```sh
+# In separate terminals.
+til-scoring cfg/scoring_cfg.yml -o logs
+til-simulator -c cfg/sim_cfg.yml
 python -m til_23_finals --config cfg/sim_autonomy.yml
 ```
 
