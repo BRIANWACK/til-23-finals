@@ -26,9 +26,6 @@ controller = PIDController(
     Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0)
 )  # this can be tuned.
 
-# === Initialize pose filter to smooth out noisy pose data ===
-pose_filter = SimpleMovingAverage(n=3)  # Smoothens out noisy localization data.
-
 
 def get_pose(loc_service, pose_filter):
     pose = loc_service.get_pose()
@@ -129,7 +126,7 @@ class Navigator:
         main_log.info("Path planned.")
 
         while True:
-            pose = get_pose(self.loc_service, pose_filter)
+            pose = get_pose(self.loc_service, self.pose_filter)
             if pose is None:
                 continue
 
@@ -166,7 +163,7 @@ class Navigator:
                 )  # current heading vs target heading
                 nav_log.info("Turning robot to face target angle...")
                 while abs(rel_ang) > 20:
-                    pose = get_pose(self.loc_service, pose_filter)
+                    pose = get_pose(self.loc_service, self.pose_filter)
                     rel_ang = ang_difference(
                         pose[2], target_rotation
                     )  # current heading vs target heading
@@ -259,7 +256,7 @@ class Navigator:
         # self.robot.gimbal.recenter()
 
         while True:
-            pose = get_pose(self.loc_service, pose_filter)
+            pose = get_pose(self.loc_service, self.pose_filter)
             print(pose)
             if pose is None:
                 continue

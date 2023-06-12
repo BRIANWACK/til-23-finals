@@ -95,6 +95,8 @@ def main():
         host=LOCALIZATION_SERVER_IP, port=LOCALIZATION_SERVER_PORT
     )  # if passthrough sim, use sim's ip address.
     rep_service = ReportingService(host=SCORE_SERVER_IP, port=SCORE_SERVER_PORT)
+    # === Initialize pose filter to smooth out noisy pose data ===
+    pose_filter = SimpleMovingAverage(n=3)  # Smoothens out noisy localization data.
 
     # === Initialize AI services. ===
     if cfg["use_real_models"] == True:
