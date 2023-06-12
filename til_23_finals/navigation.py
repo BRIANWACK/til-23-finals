@@ -7,20 +7,11 @@ import cv2
 import imutils
 import numpy as np
 from matplotlib import pyplot as plt
+from tilsdk.localization import RealLocation, SignedDistanceGrid, euclidean_distance
+from tilsdk.utilities import PIDController
 
-# Import necessary and useful things from til2023 SDK
-from tilsdk.localization import (  # import the SDK
-    RealLocation,
-    SignedDistanceGrid,
-    euclidean_distance,
-)
-from tilsdk.utilities import PIDController  # import optional useful things
-
-from .planner import (  # Exceptions for path planning.
-    InvalidStartException,
-    NoPathFoundException,
-    Planner,
-)
+# Exceptions for path planning.
+from .planner import InvalidStartException, NoPathFoundException
 
 # This can be tuned.
 DEFAULT_PID = dict(Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0))
@@ -70,13 +61,10 @@ class Navigator:
         self.pose_filter = pose_filter
         self.controller = PIDController(**DEFAULT_PID)
 
-        if cfg["use_real_localization"] == True:
-            import robomaster
-            from robomaster.robot import Robot  # Use this for real robot.
+        if cfg["use_real_localization"]:
+            from robomaster.robot import Robot
         else:
-            from tilsdk.mock_robomaster.robot import (
-                Robot,  # Use this for simulated robot.
-            )
+            from tilsdk.mock_robomaster.robot import Robot
 
         self.robot: Robot = robot
 
