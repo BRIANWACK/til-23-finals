@@ -85,13 +85,12 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     hostage_img = cv2.imread(cfg["HOSTAGE_IMG"])
 
     VISUALIZE = cfg["VISUALIZE_FLAG"]
+    IS_SIM = cfg["use_real_localization"]
 
-    if cfg["use_real_models"]:
-        from til_23_finals.services import (
-            BasicObjectReIDService,
-            NeMoSpeakerIDService,
-            WhisperDigitDetectionService,
-        )
+    if IS_SIM:
+        from til_23_finals.services.digit import WhisperDigitDetectionService
+        from til_23_finals.services.reid import BasicObjectReIDService
+        from til_23_finals.services.speaker import NeMoSpeakerIDService
 
         REID_SERVICE: type = BasicObjectReIDService
         SPEAKER_SERVICE: type = NeMoSpeakerIDService
