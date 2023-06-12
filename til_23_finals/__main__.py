@@ -9,17 +9,13 @@ are free to modify any thing in the "stubs" folder. You do not need to modify th
 
 import argparse
 import logging
-import os
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List
 
 import cv2
 import imutils
-import numpy as np
 import yaml
-from librosa import load as load_audio
 
 # Import necessary and useful things from til2023 SDK
 from tilsdk import *  # import the SDK
@@ -33,6 +29,7 @@ from .planner import (  # Exceptions for path planning.
     NoPathFoundException,
     Planner,
 )
+from .utils import enable_camera, load_audio_from_dir
 
 # Setup logging in a nice readable format
 logging.basicConfig(
@@ -47,32 +44,6 @@ sid_log = logging.getLogger("SpeakID")
 cam_log = logging.getLogger("Cam")
 
 
-##### HELPER FUNCTIONS #####
-def load_audio_from_dir(save_path: str) -> Dict[str, Tuple[np.ndarray, float]]:
-    """Load audio files from a directory.
-
-    Parameters
-    ----------
-    save_path : str
-        Path to directory containing audio files.
-
-    Returns
-    -------
-    audio_dict : Dict[str, Tuple[np.ndarray, int]]
-        Key is the filename ("audio1.wav") and value is a tuple of the audio and sampling rate.
-    """
-    audio_dict = {}
-    for item in os.scandir(save_path):
-        if item.is_file() and item.name.endswith(".wav"):
-            audio_fpath = Path(os.fsdecode(item.path)).as_posix()
-            main_log.info(f"loading {audio_fpath}...")
-            # with open(audio_fpath) as audio_file:
-            audio_dict[item.name] = load_audio(
-                audio_fpath, sr=16000
-            )  # returns audio waveform, sampling rate.
-    return audio_dict
-
-
 def reid(reid_service, hostage_img, suspect_img, img):
     """Use reid service to identify whether hostage or suspect is in the image."""
     reid_log.info(f"hostage img shape {hostage_img.shape}.")
@@ -83,24 +54,6 @@ def reid(reid_service, hostage_img, suspect_img, img):
     hostage_bbox = reid_service.targets_from_image(img, hostage_img)
     main_log.info(f"suspect?: {sus_bbox};\n hostage?: {hostage_bbox}.")
     return sus_bbox, hostage_bbox
-
-
-def take_photo(robot, photo_dir):
-    """Get robot to take photo and save it into photo_dir."""
-    robot.camera.start_video_stream(display=False, resolution="720p")
-    img = robot.camera.read_cv2_image(strategy="newest")
-    cam_log.info(f"retrieved photo with shape: {img.shape}.")
-    robot.camera.stop_video_stream()  # camera.take_photo doesn't seem to work so we start and stop video stream instead.
-
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    photo_path = f"{photo_dir}/robot_photo_{timestamp}.jpg"
-    if not cv2.imwrite(photo_path, img):
-        raise Exception(
-            "Could not save image from robot. Check path or file extension."
-        )
-    else:
-        cam_log.info(f"photo saved to {photo_path}")
-    return img
 
 
 def identify_speakers(audio_dir: str, speakerid_service):
@@ -278,7 +231,8 @@ def main():
 
                 # TAKE PHOTO
                 print("\nRobot taking photo...")
-                img = take_photo(robot, PHOTO_DIR)
+                with enable_camera(robot, PHOTO_DIR) as take_photo:
+                    img = take_photo(robot, PHOTO_DIR)
 
                 sus_bbox, hostage_bbox = reid(
                     reid_service, hostage_img, suspect_img, img
