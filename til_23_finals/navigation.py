@@ -3,13 +3,16 @@ import time
 
 import cv2
 import imutils
+import numpy as np
+from matplotlib import pyplot as plt
 
 # Import necessary and useful things from til2023 SDK
-from tilsdk import *  # import the SDK
-from tilsdk.utilities import (  # import optional useful things
-    PIDController,
-    SimpleMovingAverage,
+from tilsdk import (  # import the SDK
+    RealLocation,
+    SignedDistanceGrid,
+    euclidean_distance,
 )
+from tilsdk.utilities import PIDController  # import optional useful things
 
 from .planner import (  # Exceptions for path planning.
     InvalidStartException,
@@ -17,23 +20,19 @@ from .planner import (  # Exceptions for path planning.
     Planner,
 )
 
+# This can be tuned.
+DEFAULT_PID = dict(Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0))
+
 main_log = logging.getLogger("Main")
 nav_log = logging.getLogger("Nav")
 ctrl_log = logging.getLogger("Ctrl")
 
-# === Initialize movement controller ===
-controller = PIDController(
-    Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0)
-)  # this can be tuned.
-
 
 def get_pose(loc_service, pose_filter):
     pose = loc_service.get_pose()
-
+    # no new pose data, continue to next iteration.
     if not pose:
-        # no new pose data, continue to next iteration.
         return None
-
     return pose_filter.update(pose)
 
 
@@ -72,6 +71,7 @@ class Navigator:
         self.loc_service = loc_service
         self.planner = planner
         self.pose_filter = pose_filter
+        self.controller = PIDController(**DEFAULT_PID)
 
         if cfg["use_real_localization"] == True:
             import robomaster
@@ -155,7 +155,7 @@ class Navigator:
                     f"Reached checkpoint {last_valid_pose[0]:.2f},{last_valid_pose[1]:.2f}"
                 )
                 path = []  # flush path.
-                controller.reset()
+                self.controller.reset()
 
                 # ROTATE ROBOT TO TARGET ORIENTATION.
                 rel_ang = ang_difference(
@@ -199,7 +199,7 @@ class Navigator:
                 dist_to_wp = euclidean_distance(real_location, curr_wp)
                 if round(dist_to_wp, 2) < self.REACHED_THRESHOLD_M:
                     path = path[1:]  # remove the nearest waypoint.
-                    controller.reset()
+                    self.controller.reset()
                     curr_wp = path[0]
                     continue  # start navigating to next waypoint.
 
@@ -216,7 +216,7 @@ class Navigator:
 
                 # Move robot until next waypoint is reached.
                 # Determine velocity commands given distance to waypoint and heading to waypoint.
-                vel_cmd = controller.update((dist_to_wp, ang_diff))
+                vel_cmd = self.controller.update((dist_to_wp, ang_diff))
                 vel_cmd[0] *= np.cos(
                     np.radians(ang_diff)
                 )  # reduce forward velocity based on angular difference.
