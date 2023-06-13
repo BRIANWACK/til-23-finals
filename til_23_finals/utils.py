@@ -4,11 +4,13 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import librosa
 import numpy as np
+
+from til_23_finals.types import ReIDClass, ReIDObject
 
 __all__ = [
     "load_audio_from_dir",
@@ -17,6 +19,7 @@ __all__ = [
     "thres_strategy_A",
     "thres_strategy_naive",
     "thres_strategy_softmax",
+    "viz_reid",
 ]
 
 data_log = logging.getLogger("Data")
@@ -130,3 +133,25 @@ def thres_strategy_softmax(scores: list, temp=0.8, ratio=1.4):
     if np.max(ex) > ratio / (len(ex) + 1):
         return np.argmax(ex)
     return -1
+
+
+def viz_reid(img: np.ndarray, objects: List[ReIDObject]):
+    """Visualize the reid results."""
+    img = img.copy()
+    for obj in objects:
+        if obj.cls == ReIDClass.CIVILIAN:
+            col = (255, 0, 0)
+        elif obj.cls == ReIDClass.SUSPECT:
+            col = (0, 0, 255)
+        elif obj.cls == ReIDClass.HOSTAGE:
+            col = (0, 255, 0)
+        else:
+            raise ValueError(f"Invalid reid class: {obj.cls}")
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        img = cv2.rectangle(img, (obj.x, obj.y, obj.w, obj.h), col, 3)
+        img = cv2.putText(
+            img, f"{obj.cls.value} {obj.sim:.3f}", (obj.x, obj.y), font, 0.5, col, 2
+        )
+
+    return img
