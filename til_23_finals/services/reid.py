@@ -32,6 +32,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
     det_iou_thres = 0.7
     reid_thres = 0.25
     reid_pad = 0.075
+    yolo_tta = True
 
     def __init__(self, yolo_model_path, reid_model_path, device=BEST_DEVICE):
         """Initialize BasicObjectReIDService.
@@ -96,6 +97,11 @@ class BasicObjectReIDService(AbstractObjectReIDService):
 
         h, w = scene_img.shape[:2]
 
+        # NOTE: CLAHE & histogram matching were considered as additional test-time
+        # augmentations. But the competition dataset already contains a good diversity
+        # in color balance, and the model was trained with robustness in mind. So
+        # I feel effort in this direction would be wasted.
+
         res = self.yolo.predict(
             scene_img,
             conf=self.det_conf_thres,
@@ -103,12 +109,14 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             half=False,
             device=self.device,
             imgsz=1280,
+            augment=self.yolo_tta,
             verbose=False,
         )[0]
 
         boxes = res.boxes.xyxy.round().int().tolist()
         crops = []
         for x1, y1, x2, y2 in boxes:
+            # TODO: Average embeds across multiple padding levels?
             px = int(self.reid_pad * (x2 - x1))
             py = int(self.reid_pad * (y2 - y1))
             x1 = max(0, x1 - px)

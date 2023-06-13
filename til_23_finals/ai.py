@@ -118,7 +118,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             # TODO: Use bboxes to adjust camera.
             # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
             # be averaged for robustness.
-            # TODO: Temporal image denoise & upscale.
+            # TODO: Temporal image denoise & upscale (can only find 1 library for this and its unusable).
             bboxes = reid_service.targets_from_image(img)
 
         dets, lbl, _ = reid_service.identity_target(bboxes, sus_embed, hostage_embed)
