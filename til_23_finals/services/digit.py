@@ -41,23 +41,24 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         self.extractor.to("cpu")
 
     @torch.inference_mode()
-    def transcribe_audio_to_digits(self, audio_waveform):
+    def transcribe_audio_to_digits(self, audio_waveform, sampling_rate):
         """Transcribe audio waveform to a tuple of ints.
 
         Parameters
         ----------
         audio_waveform : numpy.ndarray
             Numpy 1d array of floats that represent the audio file.
-            It is assumed that the sampling rate of the audio is 22050Hz.
+        sampling_rate : int
+            Sampling rate of the audio.
 
         Returns
         -------
-        results : Tuple[int]
+        results : Tuple[int, ...]
             The ordered tuple of digits found in the input audio file.
         """
         self.extractor.to(self.device)
         wav = torch.tensor(audio_waveform, device=self.device)
-        wav, sr = self.extractor(wav, 22050)
+        wav, sr = self.extractor(wav, sampling_rate)
         self.extractor.to("cpu")
 
         wav = librosa.resample(wav.numpy(force=True), sr, WHISPER_SAMPLE_RATE)
