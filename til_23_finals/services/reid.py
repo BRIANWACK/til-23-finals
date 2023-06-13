@@ -123,6 +123,8 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
             det = ReIDObject(x1, y1, x2 - x1, y2 - y1, embed, 0.0, ReIDClass.CIVILIAN)
             dets.append(det)
+
+        log.info(f"Found targets: {len(dets)}")
         return dets
 
     def identity_target(self, targets, suspect_embed, hostage_embed):
@@ -163,14 +165,19 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         elif sus_idx == -1 and hos_idx != -1:
             lbl = ReIDClass.HOSTAGE
             idx = hos_idx
-        else:
+        else:  # Both are present.
+            log.warning(
+                'Both suspect and hostage are present in the scene! Default to "none".'
+            )
+            lbl = ReIDClass.CIVILIAN
+            idx = -1
             # TODO: Should we just assume its a false positive instead and report no target?
-            if sus_sims[sus_idx] > hos_sims[hos_idx]:
-                lbl = ReIDClass.SUSPECT
-                idx = sus_idx
-            else:
-                lbl = ReIDClass.HOSTAGE
-                idx = hos_idx
+            # if sus_sims[sus_idx] > hos_sims[hos_idx]:
+            #     lbl = ReIDClass.SUSPECT
+            #     idx = sus_idx
+            # else:
+            #     lbl = ReIDClass.HOSTAGE
+            #     idx = hos_idx
 
         max_sims = [max(s, h) for s, h in zip(sus_sims, hos_sims)]
         results = [
@@ -188,6 +195,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
                 t.x, t.y, t.w, t.h, t.emb, t.sim, ReIDClass.HOSTAGE
             )
 
+        log.info(f"Identified: {lbl.value}")
         return results, lbl, idx
 
     def embed_images(self, ims):

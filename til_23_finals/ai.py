@@ -16,7 +16,6 @@ from til_23_finals.services.abstract import (
 )
 from til_23_finals.utils import enable_camera, load_audio_from_dir, viz_reid
 
-reid_log = logging.getLogger("ReID")
 sid_log = logging.getLogger("SpeakID")
 main_log = logging.getLogger("Main")
 
