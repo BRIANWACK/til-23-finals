@@ -26,47 +26,46 @@ main_log = logging.getLogger("Main")
 
 def reid(
     service: AbstractObjectReIDService,
-    hostage_img: np.ndarray,
-    suspect_img: np.ndarray,
+    hostage_embed: np.ndarray,
+    suspect_embed: np.ndarray,
     img: np.ndarray,
 ):
     """Use reid service to identify whether hostage or suspect is in the image."""
-    sus_bbox = service.targets_from_image(img, suspect_img)
-    hostage_bbox = service.targets_from_image(img, hostage_img)
+    with service:
+        sus_bbox = service.targets_from_image(img, suspect_embed)
+        hostage_bbox = service.targets_from_image(img, hostage_embed)
     reid_log.info(f"Suspect: {sus_bbox}, Hostage: {hostage_bbox}")
     return sus_bbox, hostage_bbox
 
 
-def identify_speakers(audio_dir: str, speakerid_service: AbstractSpeakerIDService):
+def identify_speakers(service: AbstractSpeakerIDService, audio_dir: str):
     """Identify speakers from audio files in audio_dir."""
     audio_dict = load_audio_from_dir(audio_dir)
 
     speakerid_result = {}
-    for fname, v in audio_dict.items():
-        audio_waveform, rate = v
-        speakerid_result[fname] = speakerid_service.identify_speaker(
-            audio_waveform, rate
-        )
+    with service:
+        for fname, v in audio_dict.items():
+            audio_waveform, rate = v
+            speakerid_result[fname] = service.identify_speaker(audio_waveform, rate)
 
     for fname, speaker_id in speakerid_result.items():
         sid_log.info(f"{fname} speaker is {speaker_id}.")
     return speakerid_result
 
 
-def detect_digits(
-    digit_detection_service: AbstractDigitDetectionService, audio_dir: str
-):
+def detect_digits(service: AbstractDigitDetectionService, audio_dir: str):
     """Detect digits from audio files in audio_dir."""
     digits_result = {}
     audio_dict = load_audio_from_dir(audio_dir)
     sorted_fnames = sorted(audio_dict.keys())
 
-    for fname in sorted_fnames:
-        audio_waveform, rate = audio_dict[fname]
-        digits = digit_detection_service.transcribe_audio_to_digits(audio_waveform)
-        digits_result[fname] = (
-            digits[0] if digits else None
-        )  # as a heuristic, take the first digit detected.
+    with service:
+        for fname in sorted_fnames:
+            audio_waveform, rate = audio_dict[fname]
+            digits = service.transcribe_audio_to_digits(audio_waveform)
+            digits_result[fname] = (
+                digits[0] if digits else None
+            )  # as a heuristic, take the first digit detected.
     return digits_result
 
 
@@ -80,9 +79,6 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     PHOTO_DIR = Path(cfg["PHOTO_DIR"])
     ZIP_SAVE_DIR = Path(cfg["ZIP_SAVE_DIR"])
     MY_TEAM_NAME = cfg["MY_TEAM_NAME"]
-
-    suspect_img = cv2.imread(cfg["SUSPECT_IMG"])
-    hostage_img = cv2.imread(cfg["HOSTAGE_IMG"])
 
     VISUALIZE = cfg["VISUALIZE_FLAG"]
     IS_SIM = cfg["use_real_localization"]
@@ -113,6 +109,11 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     speaker_service = SPEAKER_SERVICE(SPEAKER_ID_MODEL_DIR)
     digit_service = DIGIT_SERVICE(NLP_MODEL_DIR)
 
+    with reid_service:
+        sus_embed, hostage_embed = reid_service.embed_images(
+            [cv2.imread(cfg["SUSPECT_IMG"]), cv2.imread(cfg["HOSTAGE_IMG"])]
+        )
+
     def loop(robot: Robot):
         """Run AI phase of main loop."""
         main_log.info("===== Starting AI tasks =====")
@@ -130,7 +131,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
 
         # TODO: Return all bboxes for camera adjustment.
         # TODO: Return confidence & similarity scores since only one of suspect or hostage can be present.
-        sus_bbox, hostage_bbox = reid(reid_service, hostage_img, suspect_img, img)
+        sus_bbox, hostage_bbox = reid(reid_service, hostage_embed, sus_embed, img)
 
         if VISUALIZE:
             img_mat = imutils.resize(img, width=1280)
@@ -156,7 +157,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         main_log.info(f"Saved next task files: {save_path}")
         main_log.info("===== Speaker ID =====")
 
-        speaker_results = identify_speakers(save_path, speaker_service)
+        speaker_results = identify_speakers(speaker_service, save_path)
         speakerid_submission = None
         for audio_fname, speakerid in speaker_results.items():
             if audio_fname.endswith(".wav"):
