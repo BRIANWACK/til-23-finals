@@ -6,10 +6,11 @@ import os
 
 import torch
 from til_23_cv import ReIDEncoder
-from tilsdk.cv.types import BoundingBox
 from ultralytics import YOLO
 
-from ..utils import cos_sim, thres_strategy_naive
+from til_23_finals.types import ReIDClass, ReIDObject
+from til_23_finals.utils import cos_sim, thres_strategy_naive
+
 from .abstract import AbstractObjectReIDService
 
 __all__ = ["BasicObjectReIDService"]
@@ -71,28 +72,22 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         self.yolo.to("cpu")
         self.reid.to("cpu")
 
-    # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
-    # be averaged for robustness.
-    # TODO: Temporal image denoise & upscale.
-    # TODO: Return all bboxes for use in camera adjustment. (perhaps focus on each?)
-    def targets_from_image(self, scene_img, target_embed):
-        """Process image with re-id pipeline and return the bounding box of the target_embed.
+    def targets_from_image(self, scene_img):
+        """Process image with re-id pipeline to return a list of `ReIDObject`.
 
-        Returns None if the model doesn't believe that the target is within scene.
+        Each `ReIDObject` contains the absolute xywh coordinates of the bbox, the
+        embedding of the object, the similarity score to the class (default 0.0),
+        and the class (default `ReIDClass.CIVILIAN`).
 
         Parameters
         ----------
         scene_img : np.ndarray
             Input image representing the scene to search through.
-        target_embed : np.ndarray
-            Target embedding.
 
         Returns
         -------
-        results : BoundingBox or None
-            BoundingBox of target within scene.
-            Assume the values are NOT normalized, i.e. the bbox values are based on the raw
-            pixel coordinates of the `scene_img`.
+        results : List[ReIDObject]
+            BoundingBox of targets within the scene. The coordinates are absolute.
         """
         assert self.activated
 
@@ -122,22 +117,78 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             y2 = min(h, y2 + py)
             crops.append(scene_img[y1:y2, x1:x2])
 
-        if len(crops) == 0:
-            return None
-
         embeds = self.reid(crops)
-        box_sims = [cos_sim(target_embed, e) for e in embeds]
-        idx = thres_strategy_naive(box_sims, self.reid_thres)
+        dets = []
+        for (x1, y1, x2, y2), embed in zip(boxes, embeds):
+            x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
+            det = ReIDObject(x1, y1, x2 - x1, y2 - y1, embed, 0.0, ReIDClass.CIVILIAN)
+            dets.append(det)
+        return dets
 
-        if idx == -1:
-            return None
+    def identity_target(self, targets, suspect_embed, hostage_embed):
+        """Identify if the suspect or hostage and present and which one.
 
-        x1, y1, x2, y2 = boxes[idx]
-        x1 = max(0, x1)
-        y1 = max(0, y1)
-        x2 = min(w, x2)
-        y2 = min(h, y2)
-        return BoundingBox(x1, y1, x2 - x1, y2 - y1)
+        Note, as per the competition rules, it is assumed either the suspect or
+        hostage is present in the scene, but not both. The returned list of targets
+        will have suspect and hostage set nonetheless for visualization purposes.
+        The scores set on the targets is the max of the similarity to the suspect
+        or hostage for debugging purposes.
+
+        Parameters
+        ----------
+        targets : List[ReIDObject]
+            List of targets to search through.
+        suspect_embed : np.ndarray
+            Embedding of the suspect.
+        hostage_embed : np.ndarray
+            Embedding of the hostage.
+
+        Returns
+        -------
+        results : Tuple[List[ReIDObject], ReIDClass, int]
+            List of targets with suspect and hostage set, the class of the target,
+            and the index of the target in the list.
+        """
+        sus_sims = [cos_sim(suspect_embed, t.emb) for t in targets]
+        hos_sims = [cos_sim(hostage_embed, t.emb) for t in targets]
+        sus_idx = thres_strategy_naive(sus_sims, self.reid_thres)
+        hos_idx = thres_strategy_naive(hos_sims, self.reid_thres)
+
+        if sus_idx == -1 and hos_idx == -1:
+            lbl = ReIDClass.CIVILIAN
+            idx = -1
+        elif sus_idx != -1 and hos_idx == -1:
+            lbl = ReIDClass.SUSPECT
+            idx = sus_idx
+        elif sus_idx == -1 and hos_idx != -1:
+            lbl = ReIDClass.HOSTAGE
+            idx = hos_idx
+        else:
+            # TODO: Should we just assume its a false positive instead and report no target?
+            if sus_sims[sus_idx] > hos_sims[hos_idx]:
+                lbl = ReIDClass.SUSPECT
+                idx = sus_idx
+            else:
+                lbl = ReIDClass.HOSTAGE
+                idx = hos_idx
+
+        max_sims = [max(s, h) for s, h in zip(sus_sims, hos_sims)]
+        results = [
+            ReIDObject(t.x, t.y, t.w, t.h, t.emb, s, t.cls)
+            for t, s in zip(targets, max_sims)
+        ]
+        if sus_idx != -1:
+            t = results[sus_idx]
+            results[sus_idx] = ReIDObject(
+                t.x, t.y, t.w, t.h, t.emb, t.sim, ReIDClass.SUSPECT
+            )
+        if hos_idx != -1:
+            t = results[hos_idx]
+            results[hos_idx] = ReIDObject(
+                t.x, t.y, t.w, t.h, t.emb, t.sim, ReIDClass.HOSTAGE
+            )
+
+        return results, lbl, idx
 
     def embed_images(self, ims):
         """Embed images using ReID model."""

@@ -1,9 +1,10 @@
 """Mock implementations of AI services for testing."""
 
-from typing import Tuple, Union
+from typing import Tuple
 
 import numpy as np
-from tilsdk.cv.types import BoundingBox
+
+from til_23_finals.types import ReIDClass, ReIDObject
 
 from .abstract import (
     AbstractDigitDetectionService,
@@ -93,27 +94,50 @@ class MockObjectReIDService(AbstractObjectReIDService):
         """
         pass
 
-    def targets_from_image(self, scene_img, target_embed) -> Union[BoundingBox, None]:
-        """Process image with re-id pipeline and return the bounding box of the target_embed.
+    def targets_from_image(self, scene_img):
+        """Process image with re-id pipeline to return a list of `ReIDObject`.
 
-        Returns None if the model doesn't believe that the target is within scene.
+        Each `ReIDObject` contains the absolute xywh coordinates of the bbox, the
+        embedding of the object, the similarity score to the class (default 0.0),
+        and the class (default `ReIDClass.CIVILIAN`).
 
         Parameters
         ----------
         scene_img : np.ndarray
             Input image representing the scene to search through.
-        target_embed : np.ndarray
-            Target embedding.
 
         Returns
         -------
-        results : BoundingBox or None
-            BoundingBox of target within scene.
-            Assume the values are NOT normalized, i.e. the bbox values are based on the raw
-            pixel coordinates of the `scene_img`.
+        results : List[ReIDObject]
+            BoundingBox of targets within the scene. The coordinates are absolute.
         """
-        bbox = BoundingBox(100, 100, 300, 50)
-        return bbox
+        det1 = ReIDObject(80, 240, 240, 240, np.ones((512,)), 0.0, ReIDClass.CIVILIAN)
+        det2 = ReIDObject(1200, 240, 240, 240, np.ones((512,)), 0.0, ReIDClass.CIVILIAN)
+        return [det1, det2]
+
+    def identity_target(self, targets, suspect_embed, hostage_embed):
+        """Identify if the suspect or hostage and present and which one.
+
+        Note, as per the competition rules, it is assumed either the suspect or
+        hostage is present in the scene, but not both. The returned list of targets
+        will have suspect and hostage set nonetheless for visualization purposes.
+
+        Parameters
+        ----------
+        targets : List[ReIDObject]
+            List of targets to search through.
+        suspect_embed : np.ndarray
+            Embedding of the suspect.
+        hostage_embed : np.ndarray
+            Embedding of the hostage.
+
+        Returns
+        -------
+        results : Tuple[List[ReIDObject], ReIDClass, int]
+            List of targets with suspect and hostage set, the class of the target,
+            and the index of the target in the list.
+        """
+        return targets, ReIDClass.CIVILIAN, -1
 
     def embed_images(self, ims):
         """Embed images into mock embeddings of 512D."""

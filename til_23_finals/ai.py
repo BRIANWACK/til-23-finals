@@ -5,8 +5,6 @@ from pathlib import Path
 from time import sleep
 
 import cv2
-import imutils
-import numpy as np
 from tilsdk.localization import RealLocation
 from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
@@ -14,28 +12,13 @@ from tilsdk.reporting.service import ReportingService
 from til_23_finals.navigation import Navigator
 from til_23_finals.services.abstract import (
     AbstractDigitDetectionService,
-    AbstractObjectReIDService,
     AbstractSpeakerIDService,
 )
-from til_23_finals.utils import enable_camera, load_audio_from_dir
+from til_23_finals.utils import enable_camera, load_audio_from_dir, viz_reid
 
 reid_log = logging.getLogger("ReID")
 sid_log = logging.getLogger("SpeakID")
 main_log = logging.getLogger("Main")
-
-
-def reid(
-    service: AbstractObjectReIDService,
-    hostage_embed: np.ndarray,
-    suspect_embed: np.ndarray,
-    img: np.ndarray,
-):
-    """Use reid service to identify whether hostage or suspect is in the image."""
-    with service:
-        sus_bbox = service.targets_from_image(img, suspect_embed)
-        hostage_bbox = service.targets_from_image(img, hostage_embed)
-    reid_log.info(f"Suspect: {sus_bbox}, Hostage: {hostage_bbox}")
-    return sus_bbox, hostage_bbox
 
 
 def identify_speakers(service: AbstractSpeakerIDService, audio_dir: str):
@@ -110,6 +93,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     digit_service = DIGIT_SERVICE(NLP_MODEL_DIR)
 
     with reid_service:
+        # TODO: Zoom onto each target to scan.
         sus_embed, hostage_embed = reid_service.embed_images(
             [cv2.imread(cfg["SUSPECT_IMG"]), cv2.imread(cfg["HOSTAGE_IMG"])]
         )
@@ -129,29 +113,19 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         with enable_camera(robot, PHOTO_DIR) as take_photo:
             img = take_photo()
 
-        # TODO: Return all bboxes for camera adjustment.
-        # TODO: Return confidence & similarity scores since only one of suspect or hostage can be present.
-        sus_bbox, hostage_bbox = reid(reid_service, hostage_embed, sus_embed, img)
+        with reid_service:
+            # TODO: Use bboxes to adjust camera.
+            # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
+            # be averaged for robustness.
+            # TODO: Temporal image denoise & upscale.
+            bboxes = reid_service.targets_from_image(img)
+
+        dets, lbl, _ = reid_service.identity_target(bboxes, sus_embed, hostage_embed)
+        viz = viz_reid(img, dets)
+        save_path = rep.report_situation(viz, pose, lbl.value, ZIP_SAVE_DIR)
 
         if VISUALIZE:
-            img_mat = imutils.resize(img, width=1280)
-            sus_col = (255, 0, 0)
-            hostage_col = (0, 255, 0)
-            non_col = (0, 0, 255)
-
-        if sus_bbox:
-            save_path = rep.report_situation(img, pose, "suspect", ZIP_SAVE_DIR)
-            if VISUALIZE:
-                cv2.rectangle(img_mat, sus_bbox, sus_col, 5)
-        if hostage_bbox:
-            save_path = rep.report_situation(img, pose, "hostage", ZIP_SAVE_DIR)
-            if VISUALIZE:
-                cv2.rectangle(img_mat, hostage_bbox, hostage_col, 5)
-        if not sus_bbox and not hostage_bbox:
-            save_path = rep.report_situation(img, pose, "none", ZIP_SAVE_DIR)
-
-        if VISUALIZE:
-            cv2.imshow("Object View", img_mat)
+            cv2.imshow("Object View", viz)
             cv2.waitKey(1)
 
         main_log.info(f"Saved next task files: {save_path}")
