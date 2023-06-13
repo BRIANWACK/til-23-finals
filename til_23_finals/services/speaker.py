@@ -7,7 +7,8 @@ from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_asr import VoiceExtractor
 from torchaudio.functional import resample
 
-from ..utils import cos_sim, thres_strategy_naive
+from til_23_finals.utils import cos_sim, thres_strategy_naive
+
 from .abstract import AbstractSpeakerIDService
 
 __all__ = ["NeMoSpeakerIDService"]
@@ -40,6 +41,7 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         # TODO: Cache embeddings.
         self.speaker_ids = []
         self.speaker_embeds = []
+        # NOTE: Should be "{team_name}_{member}_{split}.wav".
         for wav_path in Path(speaker_dir).glob("*.wav"):
             speaker_id = wav_path.stem
             # TODO: Should voice extraction also be applied here?

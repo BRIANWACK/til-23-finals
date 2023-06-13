@@ -36,13 +36,13 @@ def load_audio_from_dir(save_path: str) -> Dict[str, Tuple[np.ndarray, int]]:
     Returns
     -------
     audio_dict : Dict[str, Tuple[np.ndarray, int]]
-        Key is the filename ("audio1.wav") and value is a tuple of the audio and sampling rate.
+        Key is the filename without extension ("audio1") and value is a tuple of the audio and sampling rate.
     """
     audio_dict = {}
     for audio_path in Path(save_path).resolve().glob("*.wav"):
         data_log.info(f"Load audio: {audio_path}")
         wav, sr = librosa.load(audio_path, sr=None)
-        audio_dict[audio_path.name] = (wav, int(sr))
+        audio_dict[audio_path.stem] = (wav, int(sr))
     return audio_dict
 
 

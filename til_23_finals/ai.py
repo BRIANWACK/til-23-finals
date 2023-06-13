@@ -1,11 +1,11 @@
 """Handle AI phase of robot."""
 
 import logging
+import re
 from pathlib import Path
 from time import sleep
 
 import cv2
-from tilsdk.localization import RealLocation
 from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
 
@@ -39,16 +39,20 @@ def detect_digits(service: AbstractDigitDetectionService, audio_dir: str):
     """Detect digits from audio files in audio_dir."""
     digits_result = {}
     audio_dict = load_audio_from_dir(audio_dir)
-    sorted_fnames = sorted(audio_dict.keys())
 
     with service:
-        for fname in sorted_fnames:
-            audio_waveform, rate = audio_dict[fname]
-            digits = service.transcribe_audio_to_digits(audio_waveform)
-            digits_result[fname] = (
-                digits[0] if digits else None
-            )  # as a heuristic, take the first digit detected.
-    return digits_result
+        for audio_name, (wav, sr) in audio_dict.items():
+            digits = service.transcribe_audio_to_digits(wav, sr)
+            # as a heuristic, take the first digit detected.
+            digits_result[audio_name] = digits[0] if digits else None
+
+    # Sort filenames properly.
+    sorted_names = sorted(digits_result.keys())
+    sorted_names = sorted(sorted_names, key=lambda x: int(re.findall(r"\d+", x)[0]))
+    results = []
+    for name in sorted_names:
+        results.append(digits_result[name])
+    return tuple(results)
 
 
 def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
@@ -99,8 +103,6 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
 
     def loop(robot: Robot):
         """Run AI phase of main loop."""
-        main_log.info("===== Starting AI tasks =====")
-
         robot.chassis.drive_speed()
         # TODO: Test if necessary.
         # sleep(1)
@@ -131,39 +133,30 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         main_log.info("===== Speaker ID =====")
 
         speaker_results = identify_speakers(speaker_service, save_path)
-        speakerid_submission = None
-        for audio_fname, speakerid in speaker_results.items():
-            if audio_fname.endswith(".wav"):
-                curr_audio_fname = audio_fname[:-4]
-                team_and_member = speakerid.split("_")
-                team = team_and_member[0]
-                if not team.lower() == MY_TEAM_NAME.lower():  # find opponent's clip.
-                    speakerid_submission = curr_audio_fname + "_" + speakerid
-                    break
+        submission_id = None
+        for audio_name, speaker_id in speaker_results.items():
+            # NOTE: Should be "{team_name}_{member}_{split}".
+            team, member = speaker_id.split("_")[:2]
+            if team.lower() != MY_TEAM_NAME.lower():  # Find opponent's clip.
+                submission_id = f"{audio_name}_{team}_{member}"
+                break
 
-        if speakerid_submission is not None:
-            main_log.info(f"Submitting {speakerid_submission} to report_audio API.")
-            save_path = rep.report_audio(pose, speakerid_submission, ZIP_SAVE_DIR)
-        else:
-            raise Exception("no valid speakerid was found.")
+        if submission_id is None:
+            main_log.error("Could not find opponent's clip!")
+            submission_id = "unknown"
+
+        main_log.info(f'Submitting "{submission_id}" to report_audio API.')
+        save_path = rep.report_audio(pose, submission_id, ZIP_SAVE_DIR)
 
         main_log.info(f"Saved next task files: {save_path}")
         main_log.info("===== Digit Detection =====")
 
-        digits_result = detect_digits(digit_service, save_path)
-        password = tuple([val for _, val in digits_result.items()])
-
+        password = detect_digits(digit_service, save_path)
         # submit answer to scoring server and get scoring server's response.
         main_log.info(f"Submitting password {password} to report_digit API.")
         target_pose = rep.report_digit(pose, password)
-        main_log.info(f"new target pose received from server: {target_pose}")
+        main_log.info(f"Received next target pose: {target_pose}")
 
-        new_loi = RealLocation(x=target_pose[0], y=target_pose[1])
-        target_rotation = target_pose[2]
-
-        main_log.info(
-            "===== Ending AI tasks. Continuing Navigation to new target pose ======"
-        )
-        return new_loi, target_rotation
+        return target_pose
 
     return loop

@@ -156,7 +156,11 @@ def main():
             # try_start_tasks = True
             # AI Loop.
             if try_start_tasks:
-                new_loi, target_rotation = ai_loop()
+                main_log.info("===== Starting AI tasks =====")
+                target_pose = ai_loop()
+                new_loi = RealLocation(x=target_pose[0], y=target_pose[1])
+                target_rotation = target_pose[2]
+                main_log.info("===== AI tasks complete =====")
                 try_start_tasks = False
 
         # Navigation loop.
