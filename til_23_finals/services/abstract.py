@@ -18,11 +18,11 @@ class ActivatableService:
 
     def activate(self):
         """Any preparation before actual use."""
-        pass
+        self.activated = True
 
     def deactivate(self):
         """Any cleanup after actual use."""
-        pass
+        self.activated = False
 
     def __enter__(self):
         self.activate()
@@ -88,9 +88,9 @@ class AbstractObjectReIDService(ABC, ActivatableService):
 
     @abstractmethod
     def targets_from_image(
-        self, scene_img: np.ndarray, target_img: np.ndarray
+        self, scene_img: np.ndarray, target_embed: np.ndarray
     ) -> Union[BoundingBox, None]:
-        """Process image with re-id pipeline and return the bounding box of the target_img.
+        """Process image with re-id pipeline and return the bounding box of the target_embed.
 
         Returns None if the model doesn't believe that the target is within scene.
 
@@ -98,8 +98,8 @@ class AbstractObjectReIDService(ABC, ActivatableService):
         ----------
         scene_img : np.ndarray
             Input image representing the scene to search through.
-        target_img : np.ndarray
-            Target image representing the object to re-identify.
+        target_embed : np.ndarray
+            Target embedding.
 
         Returns
         -------
@@ -108,6 +108,11 @@ class AbstractObjectReIDService(ABC, ActivatableService):
             Assume the values are NOT normalized, i.e. the bbox values are based on the raw
             pixel coordinates of the `scene_img`.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def embed_images(self, ims: np.ndarray) -> np.ndarray:
+        """Embed images into vectors."""
         raise NotImplementedError
 
 

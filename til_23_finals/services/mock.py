@@ -93,8 +93,8 @@ class MockObjectReIDService(AbstractObjectReIDService):
         """
         pass
 
-    def targets_from_image(self, scene_img, target_img) -> Union[BoundingBox, None]:
-        """Process image with re-id pipeline and return the bounding box of the target_img.
+    def targets_from_image(self, scene_img, target_embed) -> Union[BoundingBox, None]:
+        """Process image with re-id pipeline and return the bounding box of the target_embed.
 
         Returns None if the model doesn't believe that the target is within scene.
 
@@ -102,8 +102,8 @@ class MockObjectReIDService(AbstractObjectReIDService):
         ----------
         scene_img : np.ndarray
             Input image representing the scene to search through.
-        target_img : np.ndarray
-            Target image representing the object to re-identify.
+        target_embed : np.ndarray
+            Target embedding.
 
         Returns
         -------
@@ -114,3 +114,8 @@ class MockObjectReIDService(AbstractObjectReIDService):
         """
         bbox = BoundingBox(100, 100, 300, 50)
         return bbox
+
+    def embed_images(self, ims):
+        """Embed images into mock embeddings of 512D."""
+        B = len(ims)
+        return np.ones((B, 512))

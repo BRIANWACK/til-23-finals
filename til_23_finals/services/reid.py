@@ -57,7 +57,17 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         self.reid = ReIDEncoder(self.reid_model_path, device=self.device)
         self.yolo.fuse()
 
-        # Move to CPU to save GPU memory.
+        self.deactivate()  # Save VRAM.
+
+    def activate(self):
+        """Move models to device."""
+        super(BasicObjectReIDService, self).activate()
+        self.yolo.to(self.device)
+        self.reid.to(self.device)
+
+    def deactivate(self):
+        """Move models to CPU."""
+        super(BasicObjectReIDService, self).deactivate()
         self.yolo.to("cpu")
         self.reid.to("cpu")
 
@@ -65,8 +75,8 @@ class BasicObjectReIDService(AbstractObjectReIDService):
     # be averaged for robustness.
     # TODO: Temporal image denoise & upscale.
     # TODO: Return all bboxes for use in camera adjustment. (perhaps focus on each?)
-    def targets_from_image(self, scene_img, target_img):
-        """Process image with re-id pipeline and return the bounding box of the target_img.
+    def targets_from_image(self, scene_img, target_embed):
+        """Process image with re-id pipeline and return the bounding box of the target_embed.
 
         Returns None if the model doesn't believe that the target is within scene.
 
@@ -74,8 +84,8 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         ----------
         scene_img : np.ndarray
             Input image representing the scene to search through.
-        target_img : np.ndarray
-            Target image representing the object to re-identify.
+        target_embed : np.ndarray
+            Target embedding.
 
         Returns
         -------
@@ -84,9 +94,10 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             Assume the values are NOT normalized, i.e. the bbox values are based on the raw
             pixel coordinates of the `scene_img`.
         """
+        assert self.activated
+
         # BGR to RGB
         scene_img = scene_img[:, :, ::-1]
-        target_img = target_img[:, :, ::-1]
 
         h, w = scene_img.shape[:2]
 
@@ -99,7 +110,6 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             imgsz=1280,
             verbose=False,
         )[0]
-        self.yolo.to("cpu")
 
         boxes = res.boxes.xyxy.round().int().tolist()
         crops = []
@@ -115,11 +125,8 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         if len(crops) == 0:
             return None
 
-        self.reid.to(self.device)
-        embeds = self.reid([target_img, *crops])
-        self.reid.to("cpu")
-
-        box_sims = [cos_sim(embeds[0], e) for e in embeds[1:]]
+        embeds = self.reid(crops)
+        box_sims = [cos_sim(target_embed, e) for e in embeds]
         idx = thres_strategy_naive(box_sims, self.reid_thres)
 
         if idx == -1:
@@ -131,3 +138,11 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         x2 = min(w, x2)
         y2 = min(h, y2)
         return BoundingBox(x1, y1, x2 - x1, y2 - y1)
+
+    def embed_images(self, ims):
+        """Embed images using ReID model."""
+        assert self.activated
+
+        # BGR to RGB
+        ims = ims[..., ::-1]
+        return self.reid(ims)
