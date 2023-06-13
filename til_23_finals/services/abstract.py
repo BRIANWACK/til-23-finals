@@ -13,7 +13,26 @@ __all__ = [
 ]
 
 
-class AbstractDigitDetectionService(ABC):
+class ActivatableService:
+    """Interface for services that need to be activated and deactivated."""
+
+    def activate(self):
+        """Any preparation before actual use."""
+        pass
+
+    def deactivate(self):
+        """Any cleanup after actual use."""
+        pass
+
+    def __enter__(self):
+        self.activate()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.deactivate()
+
+
+class AbstractDigitDetectionService(ABC, ActivatableService):
     """Interface for Digit Detection.
 
     This interface should be inherited from, and the following methods should be implemented.
@@ -48,7 +67,7 @@ class AbstractDigitDetectionService(ABC):
         raise NotImplementedError
 
 
-class AbstractObjectReIDService(ABC):
+class AbstractObjectReIDService(ABC, ActivatableService):
     """Interface for Object ReID.
 
     This interface should be inherited from, and the following methods should be implemented.
@@ -92,7 +111,7 @@ class AbstractObjectReIDService(ABC):
         raise NotImplementedError
 
 
-class AbstractSpeakerIDService(ABC):
+class AbstractSpeakerIDService(ABC, ActivatableService):
     """Abstract class for the Speaker ID service."""
 
     def __init__(self, model_dir: str):
