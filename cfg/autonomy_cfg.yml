@@ -40,6 +40,8 @@ CV_MODEL_DIR: models/det.pt
 
 REID_MODEL_DIR: models/reid.pt
 
+DENOISE_MODEL_DIR: models/DeepFilterNet3
+
 SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
 
 VISUALIZE_FLAG: true

@@ -22,7 +22,7 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
     model_sr = 16000
     id_thres = 0.2
 
-    def __init__(self, model_dir, speaker_dir="", device=BEST_DEVICE):
+    def __init__(self, model_dir, denoise_model_dir, device=BEST_DEVICE):
         """Initialize NeMoSpeakerIDService.
 
         Parameters

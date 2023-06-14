@@ -37,6 +37,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     CV_MODEL_DIR = cfg["CV_MODEL_DIR"]
     REID_MODEL_DIR = cfg["REID_MODEL_DIR"]
     SPEAKER_ID_MODEL_DIR = cfg["SPEAKER_ID_MODEL_DIR"]
+    DENOISE_MODEL_DIR = cfg["DENOISE_MODEL_DIR"]
 
     PHOTO_DIR = Path(cfg["PHOTO_DIR"])
     ZIP_SAVE_DIR = Path(cfg["ZIP_SAVE_DIR"])
@@ -69,8 +70,8 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     main_log.info("===== Loading AI services =====")
     main_log.warning("This will take a while unless we implement concurrent loading!")
     reid_service = REID_SERVICE(CV_MODEL_DIR, REID_MODEL_DIR)
-    speaker_service = SPEAKER_SERVICE(SPEAKER_ID_MODEL_DIR)
-    digit_service = DIGIT_SERVICE(NLP_MODEL_DIR)
+    speaker_service = SPEAKER_SERVICE(SPEAKER_ID_MODEL_DIR, DENOISE_MODEL_DIR)
+    digit_service = DIGIT_SERVICE(NLP_MODEL_DIR, DENOISE_MODEL_DIR)
 
     with reid_service:
         # TODO: Zoom onto each target to scan.

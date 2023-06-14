@@ -42,6 +42,8 @@ REID_MODEL_DIR: models/reid.pt
 
 SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
 
+DENOISE_MODEL_DIR: models/DeepFilterNet3
+
 VISUALIZE_FLAG: true
 
 SCORE_SERVER_IP: localhost

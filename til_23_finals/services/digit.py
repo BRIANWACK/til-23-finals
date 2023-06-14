@@ -42,7 +42,7 @@ def extract_digits(text: str):
 class WhisperDigitDetectionService(AbstractDigitDetectionService):
     """Digit Detection service using OpenAI's Whisper."""
 
-    def __init__(self, model_dir, device=BEST_DEVICE):
+    def __init__(self, model_dir, denoise_model_dir, device=BEST_DEVICE):
         """Initialize WhisperDigitDetectionService.
 
         Parameters
@@ -52,7 +52,7 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         device : str
             the torch device to use for computation.
         """
-        self.extractor = VoiceExtractor()
+        self.extractor = VoiceExtractor(denoise_model_dir)
         # large-v2
         self.model = whisper.load_model(model_dir, device="cpu")
         # self.prompt = """0 1 2 3 4 5 6 7 8 9."""
@@ -103,6 +103,7 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         assert self.activated
 
         wav = torch.tensor(audio_waveform, device=self.device)
+        # TODO: Save audio files for debugging.
         wav, sr = self.extractor.forward(
             wav,
             sampling_rate,
@@ -120,5 +121,6 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         result = whisper.decode(self.model, mel, self.options)[0]
         # TODO: Use result.no_speech_prob to determine if VoiceExtractor failed,
         # in which case, fallback to source audio or less aggressive extraction.
+        # Also fallback if no digits or more than one digit detected?
         # TODO: Use digit with highest confidence/attention.
         return extract_digits(result.text)

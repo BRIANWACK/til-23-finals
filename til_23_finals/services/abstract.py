@@ -40,7 +40,7 @@ class AbstractDigitDetectionService(ABC, ActivatableService):
     """
 
     @abstractmethod
-    def __init__(self, model_dir: str):
+    def __init__(self, model_dir: str, denoise_model_dir: str):
         """Initialize AbstractDigitDetectionService.
 
         Parameters
@@ -149,7 +149,7 @@ class AbstractObjectReIDService(ABC, ActivatableService):
 class AbstractSpeakerIDService(ABC, ActivatableService):
     """Abstract class for the Speaker ID service."""
 
-    def __init__(self, model_dir: str):
+    def __init__(self, model_dir: str, denoise_model_dir: str):
         """Initialize AbstractSpeakerIDService.
 
         Parameters

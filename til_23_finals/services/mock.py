@@ -18,7 +18,7 @@ __all__ = ["MockDigitDetectionService", "MockSpeakerIDService", "MockObjectReIDS
 class MockDigitDetectionService(AbstractDigitDetectionService):
     """Implementation of the Digit Detection Service based on Automatic Speech Recognition."""
 
-    def __init__(self, model_dir: str):
+    def __init__(self, model_dir: str, denoise_model_dir: str):
         """Initialize MockDigitDetectionService.
 
         Parameters
@@ -51,7 +51,7 @@ class MockDigitDetectionService(AbstractDigitDetectionService):
 class MockSpeakerIDService(AbstractSpeakerIDService):
     """Implementation of the Speaker ID service."""
 
-    def __init__(self, model_dir: str):
+    def __init__(self, model_dir: str, denoise_model_dir: str):
         """Initialize MockSpeakerIDService.
 
         Parameters

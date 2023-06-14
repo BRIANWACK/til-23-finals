@@ -137,6 +137,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             dets.append(det)
 
         log.info(f"Found targets: {len(dets)}")
+        log.info(f"Target confidences: {res.boxes.conf.tolist()}")
         return dets
 
     def identity_target(self, targets, suspect_embed, hostage_embed):
@@ -171,6 +172,9 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         hos_sims = [cos_sim(hostage_embed, t.emb) for t in targets]
         sus_idx = thres_strategy_naive(sus_sims, self.reid_thres)
         hos_idx = thres_strategy_naive(hos_sims, self.reid_thres)
+
+        log.info(f"Suspect similarities: {sus_sims}")
+        log.info(f"Hostage similarities: {hos_sims}")
 
         if sus_idx == -1 and hos_idx == -1:
             lbl = ReIDClass.CIVILIAN
