@@ -61,6 +61,10 @@ class MockSpeakerIDService(AbstractSpeakerIDService):
         """
         pass
 
+    def clear_speakers(self):
+        """Clear all enrolled speakers."""
+        pass
+
     def enroll_speaker(
         self,
         audio_waveform: np.ndarray,

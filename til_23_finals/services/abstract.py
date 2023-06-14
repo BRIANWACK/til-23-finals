@@ -160,6 +160,11 @@ class AbstractSpeakerIDService(ABC, ActivatableService):
         raise NotImplementedError
 
     @abstractmethod
+    def clear_speakers(self):
+        """Clear all enrolled speakers."""
+        raise NotImplementedError
+
+    @abstractmethod
     def enroll_speaker(
         self,
         audio_waveform: np.ndarray,

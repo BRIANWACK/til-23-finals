@@ -90,6 +90,10 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
 
         return raw_embed[0].numpy(force=True), clean_embed[0].numpy(force=True)
 
+    def clear_speakers(self):
+        """Clear all enrolled speakers."""
+        self.identities.clear()
+
     @torch.inference_mode()
     def enroll_speaker(self, audio_waveform, sampling_rate, team_id, member_id):
         """Enroll a speaker.
