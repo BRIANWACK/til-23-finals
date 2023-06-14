@@ -213,12 +213,12 @@ if __name__ == "__main__":
     with open(cfg_path, "r") as f:
         cfg = yaml.safe_load(f)
 
-        IS_SIM = cfg["use_real_localization"]
+        IS_SIM = not cfg["use_real_localization"]
 
         if IS_SIM:
-            from robomaster.robot import Robot
-        else:
             from tilsdk.mock_robomaster.robot import Robot
+        else:
+            from robomaster.robot import Robot
 
         VISUALIZE = cfg["VISUALIZE_FLAG"]
 

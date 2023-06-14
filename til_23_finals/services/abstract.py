@@ -1,5 +1,6 @@
 """Abstract classes for AI services."""
 
+import functools
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 
@@ -31,6 +32,14 @@ class ActivatableService:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.deactivate()
+
+    def __call__(self, f):
+        @functools.wraps(f)
+        def decorated(*args, **kwds):
+            with self:
+                return f(*args, **kwds)
+
+        return decorated
 
 
 class AbstractDigitDetectionService(ABC, ActivatableService):
@@ -141,8 +150,8 @@ class AbstractObjectReIDService(ABC, ActivatableService):
         raise NotImplementedError
 
     @abstractmethod
-    def embed_images(self, ims: np.ndarray) -> np.ndarray:
-        """Embed images into vectors."""
+    def embed_image(self, img: np.ndarray) -> np.ndarray:
+        """Embed image into a vector."""
         raise NotImplementedError
 
 
@@ -157,6 +166,11 @@ class AbstractSpeakerIDService(ABC, ActivatableService):
         model_dir : str
             Path of model file to load.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def clear_speakers(self):
+        """Clear all enrolled speakers."""
         raise NotImplementedError
 
     @abstractmethod

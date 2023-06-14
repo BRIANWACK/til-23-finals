@@ -60,11 +60,11 @@ class Navigator:
         self.pose_filter = pose_filter
         self.controller = PIDController(**DEFAULT_PID)
 
-        IS_SIM = cfg["use_real_localization"]
+        IS_SIM = not cfg["use_real_localization"]
         if IS_SIM:
-            from robomaster.robot import Robot
-        else:
             from tilsdk.mock_robomaster.robot import Robot
+        else:
+            from robomaster.robot import Robot
 
         self.robot: Robot = robot
 

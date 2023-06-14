@@ -26,7 +26,7 @@ DEFAULT_EXTRACTOR_CFG = dict(
     skip_spectral=True,
     spectral_first=False,
     use_ori=False,
-    noise_removal_limit_db=0,
+    noise_removal_limit_db=5,
 )
 
 
@@ -90,6 +90,10 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
 
         return raw_embed[0].numpy(force=True), clean_embed[0].numpy(force=True)
 
+    def clear_speakers(self):
+        """Clear all enrolled speakers."""
+        self.identities.clear()
+
     @torch.inference_mode()
     def enroll_speaker(self, audio_waveform, sampling_rate, team_id, member_id):
         """Enroll a speaker.
@@ -116,7 +120,9 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         self.identities.append(identity)
 
     @torch.inference_mode()
-    def identify_speaker(self, audio_waveform, sampling_rate, team_id=""):
+    def identify_speaker(
+        self, audio_waveform, sampling_rate, team_id="", return_all=False
+    ):
         """Identify the speaker in the audio file.
 
         Parameters
@@ -147,11 +153,19 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         raw_sims = [cos_sim(raw_embed, r) for r in raws]
         clean_sims = [cos_sim(clean_embed, c) for c in cleans]
 
-        scores = {}
+        scores_raw = {}
+        scores_clean = {}
         for identity, raw_score, clean_score in zip(compare, raw_sims, clean_sims):
-            # TODO: Weighted average? How to detect failure case?
+            # TODO: Weighted average? How to detect failure case, by low sigma?
             log.info(
                 f"Identity: {identity.team_id}_{identity.member_id}, Raw: {raw_score:.3f}, Clean: {clean_score:.3f}"
             )
-            scores[(identity.team_id, identity.member_id)] = clean_score
-        return scores
+            scores_raw[(identity.team_id, identity.member_id)] = raw_score
+            scores_clean[(identity.team_id, identity.member_id)] = clean_score
+
+        # NOTE: My efforts in voice extraction were wasted. NeMo's TitaNet is already
+        # noise resilient and it is clear that overall, the voice extraction harms
+        # the accuracy.
+        if return_all:
+            return scores_raw, scores_clean
+        return scores_raw

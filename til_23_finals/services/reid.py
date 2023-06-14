@@ -218,10 +218,10 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         log.info(f"Identified: {lbl.value}")
         return results, lbl, idx
 
-    def embed_images(self, ims):
-        """Embed images using ReID model."""
+    def embed_image(self, img):
+        """Embed image using ReID model."""
         assert self.activated
 
         # BGR to RGB
-        ims = ims[..., ::-1]
-        return self.reid(ims)
+        img = img[..., ::-1]
+        return self.reid([img])[0]
