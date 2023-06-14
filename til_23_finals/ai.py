@@ -57,10 +57,8 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     digit_service = DIGIT_SERVICE(NLP_MODEL_DIR, DENOISE_MODEL_DIR)
 
     with reid_service:
-        # TODO: Zoom onto each target to scan.
-        sus_embed, hostage_embed = reid_service.embed_images(
-            [cv2.imread(cfg["SUSPECT_IMG"]), cv2.imread(cfg["HOSTAGE_IMG"])]
-        )
+        sus_embed = reid_service.embed_image(cv2.imread(cfg["SUSPECT_IMG"]))
+        hostage_embed = reid_service.embed_image(cv2.imread(cfg["HOSTAGE_IMG"]))
 
     @speaker_service
     def _register_speaker_id():
@@ -85,6 +83,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             img = take_photo()
 
         # TODO: Use bboxes to adjust camera.
+        # TODO: Zoom onto each target to scan.
         # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
         # be averaged for robustness.
         # TODO: Temporal image denoise & upscale (can only find 1 library for this and its unusable).

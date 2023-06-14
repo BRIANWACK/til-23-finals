@@ -150,8 +150,8 @@ class AbstractObjectReIDService(ABC, ActivatableService):
         raise NotImplementedError
 
     @abstractmethod
-    def embed_images(self, ims: np.ndarray) -> np.ndarray:
-        """Embed images into vectors."""
+    def embed_image(self, img: np.ndarray) -> np.ndarray:
+        """Embed image into a vector."""
         raise NotImplementedError
 
 

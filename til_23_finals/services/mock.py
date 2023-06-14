@@ -172,7 +172,6 @@ class MockObjectReIDService(AbstractObjectReIDService):
         """
         return targets, ReIDClass.CIVILIAN, -1
 
-    def embed_images(self, ims):
-        """Embed images into mock embeddings of 512D."""
-        B = len(ims)
-        return np.ones((B, 512))
+    def embed_image(self, img):
+        """Embed image into a mock embedding of 512D."""
+        return np.ones((512,))
