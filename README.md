@@ -45,6 +45,8 @@ ToF documentation: <https://robomaster-dev.readthedocs.io/en/latest/python_sdk/r
 
 Found a cheatsheet that claims the distances are left, right, front and back: <https://github.com/ThePBone/RobomasterCheatsheet#callback>. Cheatsheet also links to example usage.
 
+https://www.youtube.com/watch?v=zkFVO-bCfaY&ab_channel=DJITutorials
+
 ```py
 # Current distances of left, right, front and back.
 cur_dist_lrfb = [left, right, front, back]
