@@ -29,9 +29,8 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     OPPONENT_TEAM_NAME = cfg["OPPONENT_TEAM_NAME"]
 
     VISUALIZE = cfg["VISUALIZE_FLAG"]
-    IS_SIM = cfg["use_real_localization"]
 
-    if IS_SIM:
+    if cfg["use_real_models"]:
         from til_23_finals.services.digit import WhisperDigitDetectionService
         from til_23_finals.services.reid import BasicObjectReIDService
         from til_23_finals.services.speaker import NeMoSpeakerIDService
@@ -63,8 +62,10 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             [cv2.imread(cfg["SUSPECT_IMG"]), cv2.imread(cfg["HOSTAGE_IMG"])]
         )
 
-    with speaker_service:
-        speaker_service.identities.clear()
+    @speaker_service
+    def _register_speaker_id():
+        # Scope this to allow garbage collection.
+        speaker_service.clear_speakers()
         speaker_audio = load_audio_from_dir(SPEAKER_DIR)
         for name, (wav, sr) in speaker_audio.items():
             if all(
@@ -76,41 +77,30 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             team, member = name.split("_")[:2]
             speaker_service.enroll_speaker(wav, sr, team_id=team, member_id=member)
 
-    def loop(robot: Robot):
-        """Run AI phase of main loop."""
-        robot.chassis.drive_speed()
-        # TODO: Test if necessary.
-        # sleep(1)
+    _register_speaker_id()
 
-        # NOTE: This pose only used by judges to verify robot is near checkpoint.
-        # As such, it doesn't have to be correct/constantly measured.
-        # TODO: Get last pose from navigation instead to avoid unnecessary relocalization
-        # routine. Unless, we can run said routine concurrently.
-        pose = nav.get_filtered_pose()
-
-        main_log.info("===== Object ReID =====")
-
+    @reid_service
+    def _reid(robot: Robot, pose, _):
         with enable_camera(robot, PHOTO_DIR) as take_photo:
             img = take_photo()
 
-        with reid_service:
-            # TODO: Use bboxes to adjust camera.
-            # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
-            # be averaged for robustness.
-            # TODO: Temporal image denoise & upscale (can only find 1 library for this and its unusable).
-            bboxes = reid_service.targets_from_image(img)
+        # TODO: Use bboxes to adjust camera.
+        # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
+        # be averaged for robustness.
+        # TODO: Temporal image denoise & upscale (can only find 1 library for this and its unusable).
+        bboxes = reid_service.targets_from_image(img)
 
         dets, lbl, _ = reid_service.identity_target(bboxes, sus_embed, hostage_embed)
         viz = viz_reid(img, dets)
-        save_path = rep.report_situation(viz, pose, lbl.value, ZIP_SAVE_DIR)
 
         if VISUALIZE:
             cv2.imshow("Object View", viz)
             cv2.waitKey(1)
 
-        main_log.info(f"Saved next task files: {save_path}")
-        main_log.info("===== Speaker ID =====")
+        return rep.report_situation(viz, pose, lbl.value, ZIP_SAVE_DIR)
 
+    @speaker_service
+    def _speaker(robot: Robot, pose, save_path):
         speaker_audio = load_audio_from_dir(save_path)
         us_scores = {}
         them_scores = {}
@@ -127,27 +117,45 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         team_id, member_id = max(them, key=them.get)
         submission_id = f"{name}_{team_id}_{member_id}"
         main_log.info(f'Submitting "{submission_id}" to report_audio API.')
-        save_path = rep.report_audio(pose, submission_id, ZIP_SAVE_DIR)
+        return rep.report_audio(pose, submission_id, ZIP_SAVE_DIR)
 
-        main_log.info(f"Saved next task files: {save_path}")
-        main_log.info("===== Digit Detection =====")
-
+    @digit_service
+    def _digit(robot: Robot, pose, save_path):
         password = []
-        with digit_service:
-            digit_audio = load_audio_from_dir(save_path)
-            # Number of files won't exceed 9, so no need to worry about number sorting.
-            for name in sorted(digit_audio.keys()):
-                main_log.info(f"Processing: {name}")
-                wav, sr = digit_audio[name]
-                # Digits already sorted by confidence by service.
-                digits = digit_service.transcribe_audio_to_digits(wav, sr)
-                password.append(digits[0] if len(digits) > 0 else 8)  # Lucky guess.
+        digit_audio = load_audio_from_dir(save_path)
+        # Number of files won't exceed 9, so no need to worry about number sorting.
+        for name in sorted(digit_audio.keys()):
+            main_log.info(f"Processing: {name}")
+            wav, sr = digit_audio[name]
+            # Digits already sorted by confidence by service.
+            digits = digit_service.transcribe_audio_to_digits(wav, sr)
+            password.append(digits[0] if len(digits) > 0 else 8)  # Lucky guess.
 
         # submit answer to scoring server and get scoring server's response.
         main_log.info(f"Submitting password {password} to report_digit API.")
-        target_pose = rep.report_digit(pose, tuple(password))
-        main_log.info(f"Received next target pose: {target_pose}")
+        return rep.report_digit(pose, tuple(password))
 
+    def loop(robot: Robot):
+        """Run AI phase of main loop."""
+        robot.chassis.drive_speed()
+        # TODO: Test if necessary.
+        # sleep(1)
+
+        # NOTE: This pose only used by judges to verify robot is near checkpoint.
+        # As such, it doesn't have to be correct/constantly measured.
+        # TODO: Get last pose from navigation instead to avoid unnecessary relocalization
+        # routine. Unless, we can run said routine concurrently.
+        pose = nav.get_filtered_pose()
+
+        main_log.info("===== Object ReID =====")
+        save_path = _reid(robot, pose, None)
+        main_log.info(f"Saved next task files: {save_path}")
+        main_log.info("===== Speaker ID =====")
+        save_path = _speaker(robot, pose, save_path)
+        main_log.info(f"Saved next task files: {save_path}")
+        main_log.info("===== Digit Detection =====")
+        target_pose = _digit(robot, pose, save_path)
+        main_log.info(f"Received next target pose: {target_pose}")
         return target_pose
 
     return loop

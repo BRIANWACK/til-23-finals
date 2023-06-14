@@ -1,5 +1,6 @@
 """Abstract classes for AI services."""
 
+import functools
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 
@@ -31,6 +32,14 @@ class ActivatableService:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.deactivate()
+
+    def __call__(self, f):
+        @functools.wraps(f)
+        def decorated(*args, **kwds):
+            with self:
+                return f(*args, **kwds)
+
+        return decorated
 
 
 class AbstractDigitDetectionService(ABC, ActivatableService):
