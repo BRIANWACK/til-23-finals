@@ -1,5 +1,6 @@
 """Various implementations for `AbstractDigitDetectionService`."""
 
+import logging
 import re
 
 import torch
@@ -18,6 +19,8 @@ BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 NUMBERS = dict(
     ZERO=0, ONE=1, TWO=2, THREE=3, FOUR=4, FIVE=5, SIX=6, SEVEN=7, EIGHT=8, NINE=9
 )
+
+log = logging.getLogger("Digit")
 
 
 def extract_digits(text: str):
@@ -61,9 +64,6 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
             language="en",
             # Don't use prompt as it might hurt model accuracy.
             # prompt=self.prompt,
-            # TODO: Test & tune below:
-            beam_size=5,
-            patience=2,
             without_timestamps=True,
         )
         self.device = device
@@ -102,14 +102,9 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         """
         assert self.activated
 
-        wav = torch.tensor(audio_waveform, device=self.device)
         # TODO: Save audio files for debugging.
-        wav, sr = self.extractor.forward(
-            wav,
-            sampling_rate,
-            # TODO: Skip demucs if voice extractor fails.
-            # skip_demucs=True,
-        )
+        wav = torch.tensor(audio_waveform, device=self.device)
+        wav, sr = self.extractor.forward(wav, sampling_rate)
 
         wav = resample(wav, orig_freq=sr, new_freq=WHISPER_SAMPLE_RATE)
         # See: https://github.com/huggingface/transformers/pull/21263
@@ -123,4 +118,8 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         # in which case, fallback to source audio or less aggressive extraction.
         # Also fallback if no digits or more than one digit detected?
         # TODO: Use digit with highest confidence/attention.
-        return extract_digits(result.text)
+        text = result.text
+        digits = extract_digits(text)
+        log.info(f"Extracted text: {text}")
+        log.info(f"Extracted digits: {digits}")
+        return digits

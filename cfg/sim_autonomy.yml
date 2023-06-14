@@ -31,6 +31,7 @@ OPPONENT_TEAM_NAME: PALMTREE # Change depending on simulator case!
 # Images of plushies to Re-ID.
 SUSPECT_IMG: data/arena-session1/1B_suspect.png
 HOSTAGE_IMG: data/arena-session1/1B_hostage.png
+SPEAKER_DIR: data/audio/train
 
 # These model paths/directories are not actually being used by the sample code provided.
 # But you are recommened to use such config params to connect your code to ur models.

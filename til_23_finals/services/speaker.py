@@ -1,26 +1,40 @@
 """Various implementations for `AbstractSpeakerIDService`."""
 
-from pathlib import Path
+import logging
+from typing import List
 
 import torch
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_asr import VoiceExtractor
 from torchaudio.functional import resample
 
+from til_23_finals.types import SpeakerID
 from til_23_finals.utils import cos_sim, thres_strategy_naive
 
 from .abstract import AbstractSpeakerIDService
+from .speaker_hack import CUSTOM_EXTRACTOR_CFG
 
 __all__ = ["NeMoSpeakerIDService"]
 
+log = logging.getLogger("SpeakID")
+
 BEST_DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+DEFAULT_EXTRACTOR_CFG = dict(
+    skip_vol_norm=False,
+    skip_df=False,
+    skip_spectral=True,
+    spectral_first=False,
+    use_ori=False,
+    noise_removal_limit_db=0,
+)
 
 
 class NeMoSpeakerIDService(AbstractSpeakerIDService):
     """Speaker ID service using NeMo."""
 
     model_sr = 16000
-    id_thres = 0.2
+    fallback_thres = 0.2
 
     def __init__(self, model_dir, denoise_model_dir, device=BEST_DEVICE):
         """Initialize NeMoSpeakerIDService.
@@ -35,28 +49,74 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         self.device = device
         # nvidia/speakerverification_en_titanet_large
         self.model: NeMoModel = NeMoModel.restore_from(restore_path=model_dir)
-        self.model.to(device).eval()
-        self.extractor = VoiceExtractor()
+        self.model.eval()
+        self.extractor = VoiceExtractor(denoise_model_dir)
 
-        # TODO: Cache embeddings.
-        self.speaker_ids = []
-        self.speaker_embeds = []
-        # NOTE: Should be "{team_name}_{member}_{split}.wav".
-        for wav_path in Path(speaker_dir).glob("*.wav"):
-            speaker_id = wav_path.stem
-            # TODO: Should voice extraction also be applied here?
-            embed = self.model.get_embedding(str(wav_path))
-            self.speaker_ids.append(speaker_id)
-            # Remove batch dimension.
-            self.speaker_embeds.append(embed[0].numpy(force=True))
+        self.identities: List[SpeakerID] = []
+        self.deactivate()
 
-        # Move to CPU to save GPU memory.
+    def activate(self):
+        """Any preparation before actual use."""
+        super(NeMoSpeakerIDService, self).activate()
+        self.model.to(self.device)
+        self.extractor.to(self.device)
+
+    def deactivate(self):
+        """Any cleanup after actual use."""
+        super(NeMoSpeakerIDService, self).deactivate()
         self.model.to("cpu")
         self.extractor.to("cpu")
 
-    # TODO: Modify abstract interface to accept filepath instead of waveform for convenience.
-    # TODO: Ability to exclude speaker ids if sure our team's speaker is already identified.
-    def identify_speaker(self, audio_waveform, sampling_rate):
+    @torch.inference_mode()
+    def embed_speaker(self, audio_waveform, sampling_rate, team_id=""):
+        """Embed speaker."""
+        assert self.activated
+
+        cfg = {**DEFAULT_EXTRACTOR_CFG, **CUSTOM_EXTRACTOR_CFG.get(team_id, {})}
+        raw, raw_sr = torch.tensor(audio_waveform, device=self.device), sampling_rate
+        clean, clean_sr = self.extractor.forward(raw, sampling_rate, **cfg)
+
+        raw = resample(raw, orig_freq=raw_sr, new_freq=self.model_sr)
+        clean = resample(clean, orig_freq=clean_sr, new_freq=self.model_sr)
+        raw = raw[None]
+        wav_len = torch.tensor([raw.shape[1]], device=self.device)
+        clean = clean[None]
+        clean_len = torch.tensor([clean.shape[1]], device=self.device)
+
+        _, raw_embed = self.model.forward(input_signal=raw, input_signal_length=wav_len)
+        _, clean_embed = self.model.forward(
+            input_signal=clean, input_signal_length=clean_len
+        )
+
+        return raw_embed[0].numpy(force=True), clean_embed[0].numpy(force=True)
+
+    @torch.inference_mode()
+    def enroll_speaker(self, audio_waveform, sampling_rate, team_id, member_id):
+        """Enroll a speaker.
+
+        Parameters
+        ----------
+        audio_waveform : np.ndarray
+            Input waveform.
+        sampling_rate : int
+            The sampling rate of the audio file.
+        team_id : str
+            The team ID of the speaker.
+        member_id : str
+            The member ID of the speaker.
+        """
+        assert self.activated
+
+        raw_embed, clean_embed = self.embed_speaker(
+            audio_waveform, sampling_rate, team_id
+        )
+
+        identity = SpeakerID(team_id, member_id, raw_embed, clean_embed)
+        log.info(f"Enrolled: {team_id}_{member_id}")
+        self.identities.append(identity)
+
+    @torch.inference_mode()
+    def identify_speaker(self, audio_waveform, sampling_rate, team_id=""):
         """Identify the speaker in the audio file.
 
         Parameters
@@ -65,32 +125,33 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
             input waveform.
         sampling_rate : int
             the sampling rate of the audio file.
+        team_id : str
+            Optional filter to identify within a specific team, defaults to "".
 
         Returns
         -------
-        result : str
-            string representing the speaker's ID corresponding to the list of speaker IDs in the training data set.
+        scores : Dict[Tuple[str, str], float]
+            Map of the team ID & member ID to the score.
         """
-        # `audio_waveform` is monochannel and has shape (n_samples,) already.
+        assert self.activated
 
-        with torch.inference_mode():
-            self.extractor.to(self.device)
-            wav = torch.tensor(audio_waveform, device=self.device)
-            wav, sr = self.extractor(wav, sampling_rate)
-            self.extractor.to("cpu")
+        # TODO: Save audio files for debugging.
+        raw_embed, clean_embed = self.embed_speaker(
+            audio_waveform, sampling_rate, team_id
+        )
 
-            wav = resample(wav, orig_freq=sr, new_freq=self.model_sr)
-            audio_len = len(wav)
+        compare = [i for i in self.identities if i.team_id.upper() == team_id.upper()]
+        raws = [i.raw_embed for i in compare]
+        cleans = [i.clean_embed for i in compare]
 
-            self.model.to(self.device)
-            _, embed = self.model.forward(
-                input_signal=torch.tensor([wav], device=self.device),
-                input_signal_length=torch.tensor([audio_len], device=self.device),
+        raw_sims = [cos_sim(raw_embed, r) for r in raws]
+        clean_sims = [cos_sim(clean_embed, c) for c in cleans]
+
+        scores = {}
+        for identity, raw_score, clean_score in zip(compare, raw_sims, clean_sims):
+            # TODO: Weighted average? How to detect failure case?
+            log.info(
+                f"Identity: {identity.team_id}_{identity.member_id}, Raw: {raw_score:.3f}, Clean: {clean_score:.3f}"
             )
-            self.model.to("cpu")
-
-        embed = embed[0].numpy(force=True)
-        speaker_sims = [cos_sim(embed, e) for e in self.speaker_embeds]
-        idx = thres_strategy_naive(speaker_sims, self.id_thres)
-        assert idx != -1
-        return self.speaker_ids[idx]
+            scores[(identity.team_id, identity.member_id)] = clean_score
+        return scores

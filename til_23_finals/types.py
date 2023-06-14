@@ -5,7 +5,7 @@ from typing import NamedTuple
 
 import numpy as np
 
-__all__ = ["ReIDObject", "ReIDClass"]
+__all__ = ["ReIDObject", "ReIDClass", "SpeakerID"]
 
 
 class ReIDClass(Enum):
@@ -26,3 +26,12 @@ class ReIDObject(NamedTuple):
     emb: np.ndarray
     sim: float
     cls: ReIDClass
+
+
+class SpeakerID(NamedTuple):
+    """Speaker Identity."""
+
+    team_id: str
+    member_id: str
+    raw_embed: np.ndarray
+    clean_embed: np.ndarray

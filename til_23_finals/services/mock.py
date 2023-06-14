@@ -1,6 +1,6 @@
 """Mock implementations of AI services for testing."""
 
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 
@@ -61,25 +61,51 @@ class MockSpeakerIDService(AbstractSpeakerIDService):
         """
         pass
 
-    def identify_speaker(self, audio_waveform: np.ndarray, sampling_rate: int) -> str:
+    def enroll_speaker(
+        self,
+        audio_waveform: np.ndarray,
+        sampling_rate: int,
+        team_id: str,
+        member_id: str,
+    ):
+        """Enroll a speaker.
+
+        Parameters
+        ----------
+        audio_waveform : np.ndarray
+            Input waveform.
+        sampling_rate : int
+            The sampling rate of the audio file.
+        team_id : str
+            The team ID of the speaker.
+        member_id : str
+            The member ID of the speaker.
+        """
+        pass
+
+    def identify_speaker(
+        self, audio_waveform: np.ndarray, sampling_rate: int, team_id: str = ""
+    ) -> Dict[Tuple[str, str], float]:
         """Identify the speaker in the audio file.
 
         Parameters
         ----------
         audio_waveform : np.ndarray
-            input waveform.
+            Input waveform.
         sampling_rate : int
-            the sampling rate of the audio file.
+            The sampling rate of the audio file.
+        team_id : str
+            Optional filter to identify within a specific team, defaults to "".
 
         Returns
         -------
-        result : str
-            string representing the speaker's ID corresponding to the list of speaker IDs in the training data set.
+        scores : Dict[Tuple[str, str], float]
+            Map of the team ID & member ID to the score.
         """
         if audio_waveform[0] == 1:
-            return "TeamName1_Member1"
+            return {("BRIANWACK", "MemberA"): 0.9}
         else:
-            return "TeamName2_Member3"
+            return {("PALMTREE", "MemberB"): 0.9}
 
 
 class MockObjectReIDService(AbstractObjectReIDService):

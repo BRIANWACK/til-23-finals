@@ -9,26 +9,9 @@ from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
 
 from til_23_finals.navigation import Navigator
-from til_23_finals.services.abstract import AbstractSpeakerIDService
 from til_23_finals.utils import enable_camera, load_audio_from_dir, viz_reid
 
-sid_log = logging.getLogger("SpeakID")
-main_log = logging.getLogger("Main")
-
-
-def identify_speakers(service: AbstractSpeakerIDService, audio_dir: str):
-    """Identify speakers from audio files in audio_dir."""
-    audio_dict = load_audio_from_dir(audio_dir)
-
-    speakerid_result = {}
-    with service:
-        for fname, v in audio_dict.items():
-            audio_waveform, rate = v
-            speakerid_result[fname] = service.identify_speaker(audio_waveform, rate)
-
-    for fname, speaker_id in speakerid_result.items():
-        sid_log.info(f"{fname} speaker is {speaker_id}.")
-    return speakerid_result
+main_log = logging.getLogger("AI")
 
 
 def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
@@ -41,6 +24,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
 
     PHOTO_DIR = Path(cfg["PHOTO_DIR"])
     ZIP_SAVE_DIR = Path(cfg["ZIP_SAVE_DIR"])
+    SPEAKER_DIR = cfg["SPEAKER_DIR"]
     MY_TEAM_NAME = cfg["MY_TEAM_NAME"]
     OPPONENT_TEAM_NAME = cfg["OPPONENT_TEAM_NAME"]
 
@@ -79,11 +63,24 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             [cv2.imread(cfg["SUSPECT_IMG"]), cv2.imread(cfg["HOSTAGE_IMG"])]
         )
 
+    with speaker_service:
+        speaker_audio = load_audio_from_dir(SPEAKER_DIR)
+        for name, (wav, sr) in speaker_audio.items():
+            if all(
+                n.upper() not in name.upper()
+                for n in [MY_TEAM_NAME, OPPONENT_TEAM_NAME]
+            ):
+                continue
+
+            team, member = name.split("_")[:2]
+            speaker_service.enroll_speaker(wav, sr, team_id=team, member_id=member)
+
     def loop(robot: Robot):
         """Run AI phase of main loop."""
         robot.chassis.drive_speed()
         # TODO: Test if necessary.
         # sleep(1)
+
         # NOTE: This pose only used by judges to verify robot is near checkpoint.
         # As such, it doesn't have to be correct/constantly measured.
         # TODO: Get last pose from navigation instead to avoid unnecessary relocalization
@@ -113,20 +110,20 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         main_log.info(f"Saved next task files: {save_path}")
         main_log.info("===== Speaker ID =====")
 
-        # TODO: Filter out audio samples for speaker identity depending on opponent team.
-        speaker_results = identify_speakers(speaker_service, save_path)
-        submission_id = None
-        for audio_name, speaker_id in speaker_results.items():
-            # NOTE: Should be "{team_name}_{member}_{split}".
-            team, member = speaker_id.split("_")[:2]
-            if team.lower() != MY_TEAM_NAME.lower():  # Find opponent's clip.
-                submission_id = f"{audio_name}_{team}_{member}"
-                break
-
-        if submission_id is None:
-            main_log.error("Could not find opponent's clip!")
-            submission_id = "unknown"
-
+        speaker_audio = load_audio_from_dir(save_path)
+        us_scores = {}
+        them_scores = {}
+        for name, (wav, sr) in speaker_audio.items():
+            main_log.info(f"Processing: {name}")
+            us = speaker_service.identify_speaker(wav, sr, team_id=MY_TEAM_NAME)
+            them = speaker_service.identify_speaker(wav, sr, team_id=OPPONENT_TEAM_NAME)
+            us_scores[name] = max(us.values())
+            them_scores[name] = them
+        # Remove our clip.
+        them_scores.pop(max(us_scores, key=us_scores.get))  # type: ignore
+        name, them = next(iter(them_scores.items()))
+        team_id, member_id = max(them, key=them.get)
+        submission_id = f"{name}_{team_id}_{member_id}"
         main_log.info(f'Submitting "{submission_id}" to report_audio API.')
         save_path = rep.report_audio(pose, submission_id, ZIP_SAVE_DIR)
 
@@ -138,6 +135,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             digit_audio = load_audio_from_dir(save_path)
             # Number of files won't exceed 9, so no need to worry about number sorting.
             for name in sorted(digit_audio.keys()):
+                main_log.info(f"Processing: {name}")
                 wav, sr = digit_audio[name]
                 # Digits already sorted by confidence by service.
                 digits = digit_service.transcribe_audio_to_digits(wav, sr)
