@@ -114,6 +114,10 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         )[0]
 
         boxes = res.boxes.xyxy.round().int().tolist()
+        if len(boxes) == 0:
+            log.warning("No targets found!")
+            return []
+
         crops = []
         for x1, y1, x2, y2 in boxes:
             # TODO: Average embeds across multiple padding levels?
@@ -159,6 +163,10 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             List of targets with suspect and hostage set, the class of the target,
             and the index of the target in the list.
         """
+        if len(targets) == 0:
+            log.warning("No targets given!")
+            return targets, ReIDClass.CIVILIAN, -1
+
         sus_sims = [cos_sim(suspect_embed, t.emb) for t in targets]
         hos_sims = [cos_sim(hostage_embed, t.emb) for t in targets]
         sus_idx = thres_strategy_naive(sus_sims, self.reid_thres)
