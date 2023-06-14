@@ -64,6 +64,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         )
 
     with speaker_service:
+        speaker_service.identities.clear()
         speaker_audio = load_audio_from_dir(SPEAKER_DIR)
         for name, (wav, sr) in speaker_audio.items():
             if all(
@@ -119,6 +120,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
             them = speaker_service.identify_speaker(wav, sr, team_id=OPPONENT_TEAM_NAME)
             us_scores[name] = max(us.values())
             them_scores[name] = them
+
         # Remove our clip.
         them_scores.pop(max(us_scores, key=us_scores.get))  # type: ignore
         name, them = next(iter(them_scores.items()))

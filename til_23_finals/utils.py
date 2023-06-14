@@ -40,7 +40,7 @@ def load_audio_from_dir(save_path: str) -> Dict[str, Tuple[np.ndarray, int]]:
     """
     audio_dict = {}
     for audio_path in Path(save_path).resolve().glob("*.wav"):
-        data_log.info(f"Load audio: {audio_path}")
+        data_log.debug(f"Load audio: {audio_path}")
         wav, sr = librosa.load(audio_path, sr=None)
         audio_dict[audio_path.stem] = (wav, int(sr))
     return audio_dict
@@ -57,7 +57,7 @@ def enable_camera(robot, photo_dir: Optional[Path] = None):
 
     def _take_photo():
         img = robot.camera.read_cv2_image(strategy="newest")
-        data_log.info(f"Captured photo with shape: {img.shape}.")
+        data_log.debug(f"Captured photo with shape: {img.shape}.")
         if photo_dir is None:
             return img
 
@@ -66,7 +66,7 @@ def enable_camera(robot, photo_dir: Optional[Path] = None):
         if not cv2.imwrite(photo_path, img):
             data_log.warning(f"Could not save photo: {photo_path}")
         else:
-            data_log.info(f"Photo saved: {photo_path}")
+            data_log.debug(f"Photo saved: {photo_path}")
         return img
 
     try:
