@@ -2,13 +2,19 @@
 
 import logging
 import time
+from typing import List
 
 import cv2
 import imutils
 import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
-from tilsdk.localization import RealLocation, SignedDistanceGrid, euclidean_distance
+from tilsdk.localization import (
+    RealLocation,
+    RealPose,
+    SignedDistanceGrid,
+    euclidean_distance,
+)
 from tilsdk.utilities import PIDController
 
 # Exceptions for path planning.
@@ -22,14 +28,6 @@ DEFAULT_PID = dict(Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0))
 main_log = logging.getLogger("Main")
 nav_log = logging.getLogger("Nav")
 ctrl_log = logging.getLogger("Ctrl")
-
-
-def plan_path(planner, start: list, goal):
-    """Plan path."""
-    current_coord = RealLocation(x=start[0], y=start[1])
-    path = planner.plan(current_coord, goal)
-    return path
-
 
 def ang_difference(ang1, ang2):
     """Get angular difference in degrees of two angles in degrees.
@@ -46,8 +44,7 @@ def ang_difference(ang1, ang2):
         ang_diff -= 360
     return ang_diff
 
-
-def ang_diff_to_wp(pose, curr_wp):
+def ang_diff_to_wp(pose: RealPose, curr_wp):
     """Get angular difference in degrees of current pose to current waypoint."""
     ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
     ang_diff = ang_difference(ang_to_wp, pose[2])
@@ -75,6 +72,20 @@ class Navigator:
         self.VISUALIZE_FLAG = cfg["VISUALIZE_FLAG"]
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
+    
+    def plan_path(self, start: list, goal) -> List[RealLocation]:
+        """Plan path."""
+        try:
+            current_coord = RealLocation(x=start[0], y=start[1])
+            path = self.planner.plan(current_coord, goal)
+            main_log.info("Path planned.")
+            return path
+
+        except InvalidStartException as e:
+            ## Ensure only valid start positions are passed to the planner.
+            nav_log.warning(f"{e}")
+            # TODO: find and use another valid start point.
+            return None
 
     def get_filtered_pose(self):
         """Get filtered pose."""
@@ -110,19 +121,32 @@ class Navigator:
 
         cv2.arrowedLine(mapMat, arrowStart, arrowEnd, 0, 2, tipLength=0.5)
 
-    def navigation_loop(self, last_valid_pose, curr_loi, target_rotation):
+    def turnRobot(self, target_rotation):
+        nav_log.info("Turning robot to face target angle...")
+        while abs(rel_ang) > 20:
+            pose = self.get_filtered_pose()
+            rel_ang = ang_difference(
+                pose[2], target_rotation
+            )  # current heading vs target heading
+
+            if rel_ang < -20:
+                # rotate counter-clockwise
+                nav_log.info(f"Trying to turn clockwise... ang left: {rel_ang}")
+                self.robot.chassis.drive_speed(x=0, z=10)
+            elif rel_ang > 20:
+                # rotate clockwise
+                nav_log.info(
+                    f"Trying to turn counter-clockwise... ang left: {rel_ang}"
+                )
+                self.robot.chassis.drive_speed(x=0, z=-10)
+            time.sleep(1)
+        nav_log.info("Robot should now be facing close to target angle.")
+
+    def given_navigation_loop(self, last_valid_pose, curr_loi, target_rotation):
         """Run navigation loop."""
-        try:
-            path = plan_path(
-                self.planner, last_valid_pose, curr_loi
-            )  ## Ensure only valid start positions are passed to the planner.
-
-        except InvalidStartException as e:
-            nav_log.warning(f"{e}")
-            # TODO: find and use another valid start point.
+        path = self.plan_path(last_valid_pose, curr_loi)
+        if path is None: # Due to invalid pose
             return
-
-        main_log.info("Path planned.")
 
         while True:
             pose = self.get_filtered_pose()
@@ -132,7 +156,6 @@ class Navigator:
             real_location = RealLocation(x=pose[0], y=pose[1])
             grid_location = self.map.real_to_grid(real_location)
 
-            # TODO: Add visualization code here.
             if self.VISUALIZE_FLAG:
                 mapMat = self.map.grid.copy()
                 self.drawPose(mapMat, grid_location, pose[2])
@@ -147,9 +170,7 @@ class Navigator:
                 continue
 
             dist_to_goal = euclidean_distance(last_valid_pose, curr_loi)
-            if (
-                round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M
-            ):  # Reached checkpoint.
+            if round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M:  # Reached checkpoint.
                 nav_log.info(
                     f"Reached checkpoint {last_valid_pose[0]:.2f},{last_valid_pose[1]:.2f}"
                 )
@@ -160,25 +181,7 @@ class Navigator:
                 rel_ang = ang_difference(
                     last_valid_pose[2], target_rotation
                 )  # current heading vs target heading
-                nav_log.info("Turning robot to face target angle...")
-                while abs(rel_ang) > 20:
-                    pose = self.get_filtered_pose()
-                    rel_ang = ang_difference(
-                        pose[2], target_rotation
-                    )  # current heading vs target heading
-
-                    if rel_ang < -20:
-                        # rotate counter-clockwise
-                        nav_log.info(f"Trying to turn clockwise... ang left: {rel_ang}")
-                        self.robot.chassis.drive_speed(x=0, z=10)
-                    elif rel_ang > 20:
-                        # rotate clockwise
-                        nav_log.info(
-                            f"Trying to turn counter-clockwise... ang left: {rel_ang}"
-                        )
-                        self.robot.chassis.drive_speed(x=0, z=-10)
-                    time.sleep(1)
-                nav_log.info("Robot should now be facing close to target angle.")
+                self.turnRobot(rel_ang)
 
                 curr_wp = None
                 prev_loi = curr_loi
@@ -199,7 +202,6 @@ class Navigator:
                 if round(dist_to_wp, 2) < self.REACHED_THRESHOLD_M:
                     path = path[1:]  # remove the nearest waypoint.
                     self.controller.reset()
-                    curr_wp = path[0]
                     continue  # start navigating to next waypoint.
 
                 pose_str = f"x:{last_valid_pose[0]:.2f}, y:{last_valid_pose[1]:.2f}, rot:{last_valid_pose[2]:.2f}"
@@ -245,6 +247,32 @@ class Navigator:
             plt.pause(0.01)
 
         return curr_wp, prev_loi, curr_loi, try_start_tasks
+
+    def basic_navigation_loop(self, last_valid_pose: RealPose, curr_loi, target_rotation):
+        # TODO: Test movement accuracy, no simulator equivalent
+        # TODO: Measure length of board, assumed to be 0.5 m now
+        # TODO: Add visualization code
+        BOARDSCALE = 0.5
+
+        path = self.plan_path(last_valid_pose, curr_loi)
+        if path is None: # Due to invalid pose
+            return
+        
+        curr_estimated_pose = [last_valid_pose.x, last_valid_pose.y]
+        while path:
+            wp = path[0]
+            path = path[1:]
+            deltaX = BOARDSCALE*(wp.x - curr_estimated_pose.x)
+            deltaY = BOARDSCALE*(wp.y - curr_estimated_pose.y)
+            self.robot.chassis.move(x=deltaX, y=deltaY).wait_for_completed()
+            curr_estimated_pose = wp
+
+        # Check direction
+        rel_ang = ang_difference(
+                    last_valid_pose.z, target_rotation
+                )  # current heading vs target heading
+        self.robot.chassis.move(z=rel_ang).wait_for_completed()
+        
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
         """Run manual control loop using WASD keys."""

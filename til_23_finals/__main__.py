@@ -171,7 +171,8 @@ def main():
                 try_start_tasks = False
 
         # Navigation loop.
-        navigator.navigation_loop(last_valid_pose, new_loi, target_rotation)
+        # navigator.given_navigation_loop(last_valid_pose, new_loi, target_rotation)
+        navigator.basic_navigation_loop(last_valid_pose, curr_loi, target_rotation)
 
         # WASD Control
         # navigator.WASD_loop()
