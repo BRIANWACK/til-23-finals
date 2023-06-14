@@ -123,6 +123,7 @@ class Navigator:
 
     def turnRobot(self, target_rotation):
         nav_log.info("Turning robot to face target angle...")
+        rel_ang = 180
         while abs(rel_ang) > 20:
             pose = self.get_filtered_pose()
             rel_ang = ang_difference(

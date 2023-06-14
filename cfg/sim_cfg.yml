@@ -13,7 +13,7 @@ map_file: data/maps/map_complex_1cm.png
 #map_file: "/home/nicholas/code/til-23-finals/data/maps/map_simple_5x2.png"
 
 # Specify what image the virtual robot should return when using its "camera"
-image_file: data/imgs/targetmario.png
+image_file: data/simulator/hostage_scene.png
 
 map_scale: 0.01 # by default, set to 0.01. Ratio of real world units (metres) to one pixel.
 
@@ -25,7 +25,7 @@ start_pose:
   x: 0.5
   y: 0.5
   z: 90
-use_noisy_pose: true # set to true to simulate noisy robot poses.
+use_noisy_pose: false # set to true to simulate noisy robot poses.
 robot_phy_length: 0.32
 position_noise_stddev: 0.15
 
