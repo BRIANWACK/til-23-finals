@@ -7,6 +7,13 @@ are free to modify any thing in the "stubs" folder. You do not need to modify th
 "src" folder. Have fun!
 """
 
+# Setup some cache directories before everything else.
+import os
+
+os.environ["HF_HOME"] = "models/"
+os.environ["TORCH_HOME"] = "models/"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 import argparse
 import logging
 import time
