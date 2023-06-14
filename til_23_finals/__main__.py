@@ -53,6 +53,23 @@ def main():
     if not IS_SIM:
         robot.gimbal.recenter()
 
+    if IS_SIM:
+
+        class Action:
+            def __init__(self):
+                pass
+
+            def wait_for_completed(self):
+                """Block till action is completed."""
+                time.sleep(1)
+
+        def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
+            self.drive_speed(x, y, z)
+            return Action()
+
+        bound_method = move.__get__(robot.chassis, robot.chassis.__class__)
+        setattr(robot.chassis, "move", bound_method)
+
     # === Initialize planner ===
     map_: SignedDistanceGrid = loc_service.get_map()
     # Dilate obstacles virtually so that planner avoids bringing robot too close
@@ -164,7 +181,7 @@ def main():
             # AI Loop.
             if try_start_tasks:
                 main_log.info("===== Starting AI tasks =====")
-                target_pose = ai_loop()
+                target_pose = ai_loop(robot)
                 new_loi = RealLocation(x=target_pose[0], y=target_pose[1])
                 target_rotation = target_pose[2]
                 main_log.info("===== AI tasks complete =====")
