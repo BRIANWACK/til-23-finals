@@ -14,6 +14,7 @@ til-23-asr = {path = "til-23-asr", develop = true}
 nemo-toolkit = {extras = ["asr"], version = "^1.18.1"}
 robomaster = "^0.1.1.68"
 imutils = "^0.5.4"
+num2words = "^0.5.12"
 
 [tool.poetry.group.dev.dependencies]
 black = "23.3.0"

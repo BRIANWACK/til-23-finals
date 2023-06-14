@@ -110,6 +110,7 @@ netifaces==0.11.0
 networkx==3.1
 nltk==3.8.1
 noisereduce @ git+https://github.com/timsainb/noisereduce.git@57512ceac7672c8847beaa4654392977c6ea9d49
+num2words==0.5.12
 numba==0.57.0
 numpy==1.24.3
 nvidia-cublas-cu11==11.10.3.66

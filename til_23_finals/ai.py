@@ -9,10 +9,7 @@ from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
 
 from til_23_finals.navigation import Navigator
-from til_23_finals.services.abstract import (
-    AbstractDigitDetectionService,
-    AbstractSpeakerIDService,
-)
+from til_23_finals.services.abstract import AbstractSpeakerIDService
 from til_23_finals.utils import enable_camera, load_audio_from_dir, viz_reid
 
 sid_log = logging.getLogger("SpeakID")
@@ -32,27 +29,6 @@ def identify_speakers(service: AbstractSpeakerIDService, audio_dir: str):
     for fname, speaker_id in speakerid_result.items():
         sid_log.info(f"{fname} speaker is {speaker_id}.")
     return speakerid_result
-
-
-def detect_digits(service: AbstractDigitDetectionService, audio_dir: str):
-    """Detect digits from audio files in audio_dir."""
-    digits_result = {}
-    audio_dict = load_audio_from_dir(audio_dir)
-
-    with service:
-        for audio_name, (wav, sr) in audio_dict.items():
-            digits = service.transcribe_audio_to_digits(wav, sr)
-            # as a heuristic, take the first digit detected.
-            digits_result[audio_name] = digits[0] if digits else None
-
-    # Sort filenames properly.
-    sorted_names = sorted(digits_result.keys())
-    # Not needed, number of files won't exceed 9.
-    # sorted_names = sorted(sorted_names, key=lambda x: int(re.findall(r"\d+", x)[0]))
-    results = []
-    for name in sorted_names:
-        results.append(digits_result[name])
-    return tuple(results)
 
 
 def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
@@ -156,10 +132,19 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         main_log.info(f"Saved next task files: {save_path}")
         main_log.info("===== Digit Detection =====")
 
-        password = detect_digits(digit_service, save_path)
+        password = []
+        with digit_service:
+            digit_audio = load_audio_from_dir(save_path)
+            # Number of files won't exceed 9, so no need to worry about number sorting.
+            for name in sorted(digit_audio.keys()):
+                wav, sr = digit_audio[name]
+                # Digits already sorted by confidence by service.
+                digits = digit_service.transcribe_audio_to_digits(wav, sr)
+                password.append(digits[0] if len(digits) > 0 else 8)  # Lucky guess.
+
         # submit answer to scoring server and get scoring server's response.
         main_log.info(f"Submitting password {password} to report_digit API.")
-        target_pose = rep.report_digit(pose, password)
+        target_pose = rep.report_digit(pose, tuple(password))
         main_log.info(f"Received next target pose: {target_pose}")
 
         return target_pose
