@@ -1,7 +1,6 @@
 """Handle AI phase of robot."""
 
 import logging
-import re
 from pathlib import Path
 from time import sleep
 
@@ -48,7 +47,8 @@ def detect_digits(service: AbstractDigitDetectionService, audio_dir: str):
 
     # Sort filenames properly.
     sorted_names = sorted(digits_result.keys())
-    sorted_names = sorted(sorted_names, key=lambda x: int(re.findall(r"\d+", x)[0]))
+    # Not needed, number of files won't exceed 9.
+    # sorted_names = sorted(sorted_names, key=lambda x: int(re.findall(r"\d+", x)[0]))
     results = []
     for name in sorted_names:
         results.append(digits_result[name])
@@ -65,6 +65,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     PHOTO_DIR = Path(cfg["PHOTO_DIR"])
     ZIP_SAVE_DIR = Path(cfg["ZIP_SAVE_DIR"])
     MY_TEAM_NAME = cfg["MY_TEAM_NAME"]
+    OPPONENT_TEAM_NAME = cfg["OPPONENT_TEAM_NAME"]
 
     VISUALIZE = cfg["VISUALIZE_FLAG"]
     IS_SIM = cfg["use_real_localization"]
@@ -106,7 +107,10 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         robot.chassis.drive_speed()
         # TODO: Test if necessary.
         # sleep(1)
-        # TODO: Will get_filtered_pose in the future use the calibration routine?
+        # NOTE: This pose only used by judges to verify robot is near checkpoint.
+        # As such, it doesn't have to be correct/constantly measured.
+        # TODO: Get last pose from navigation instead to avoid unnecessary relocalization
+        # routine. Unless, we can run said routine concurrently.
         pose = nav.get_filtered_pose()
 
         main_log.info("===== Object ReID =====")
@@ -132,6 +136,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         main_log.info(f"Saved next task files: {save_path}")
         main_log.info("===== Speaker ID =====")
 
+        # TODO: Filter out audio samples for speaker identity depending on opponent team.
         speaker_results = identify_speakers(speaker_service, save_path)
         submission_id = None
         for audio_name, speaker_id in speaker_results.items():
