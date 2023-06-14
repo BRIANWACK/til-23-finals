@@ -119,6 +119,8 @@ def thres_strategy_A(scores: list, accept_thres=0.3, vote_thres=0.0, sd_thres=4.
 
 def thres_strategy_naive(scores: list, thres=0.3):
     """Naive thresholding strategy."""
+    if len(scores) < 1:
+        return -1
     if np.max(scores) > thres:
         return np.argmax(scores)
     return -1
