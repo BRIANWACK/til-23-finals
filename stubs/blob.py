@@ -178,15 +178,20 @@ def drawGrids(image, xN, yN):
 
     for x in range(1, xN):
         xCoord = round(gridW * x)
-        cv2.line(imageCopy, (xCoord, 0), (xCoord, h), 1, thickness=1)
+        cv2.line(imageCopy, (xCoord, 0), (xCoord, h), 255, thickness=1)
     for y in range(1, yN):
         yCoord = round(gridH * y)
-        cv2.line(imageCopy, (0, yCoord), (w, yCoord), 1, thickness=1)
+        cv2.line(imageCopy, (0, yCoord), (w, yCoord), 255, thickness=1)
     return imageCopy
 
 
 class ParticleFilter:
     def __init__(self, frame, cnts, P, N):
+        """
+        P: no. of points in a grid in each direction.
+        N: no. of grids in each direction.
+        """
+
         self.frame = frame
         self.cnts = sorted(
             cnts, key=lambda x: cv2.contourArea(x)
@@ -195,12 +200,13 @@ class ParticleFilter:
         self.N = np.array(N)  # np array, no. of grids in each direction.
         self.pixelDistDebug = False
 
-        self.blank = np.zeros(self.frame.shape[:2])
+        self.blank = np.zeros(self.frame.shape[:2]).astype(np.uint8)
 
         # Generate frame where all pixels inside obstacles are 1.
         self.walls = self.blank.copy()
-        for cnt in self.cnts[:-1]:  # exclude largest contour by area (ie outer walls)
-            cv2.fillPoly(self.walls, pts=[cnt], color=1)
+        for cnt in self.cnts:
+            cv2.fillPoly(self.walls, pts=[cnt], color=255)
+        display(self.walls)
 
         h, w, _ = self.frame.shape
         self.boundaryCnt = [
@@ -209,7 +215,7 @@ class ParticleFilter:
 
         # Generate frame where all pixels inside boundary and obstacles are 1.
         self.wallsAndBoundary = cv2.drawContours(
-            self.walls.copy(), self.boundaryCnt, -1, 1, 1
+            self.walls.copy(), self.boundaryCnt, -1, 255, 1
         )
 
     def pixelDistFromWall(self, coord, angle):
@@ -231,23 +237,23 @@ class ParticleFilter:
         # Check if coord is inside an obstacle
         xCoord = min(xCoord, w - 1)
         yCoord = min(yCoord, h - 1)
-        if self.walls[yCoord][xCoord] == 1:
+        if self.wallsAndBoundary[yCoord][xCoord] == 255:
             return np.nan
 
         # Get point on wall closest to current coord
         xEnd, yEnd = round(xCoord + travel), round(yCoord + travel * gradient)
-        lineFrame = cv2.line(self.blank.copy(), (xCoord, yCoord), (xEnd, yEnd), 1, 1)
+        lineFrame = cv2.line(self.blank.copy(), (xCoord, yCoord), (xEnd, yEnd), 255, 1)
         img = cv2.bitwise_and(lineFrame, self.wallsAndBoundary)
         coords = cv2.findNonZero(img)
 
         if self.pixelDistDebug:
             debug = cv2.bitwise_or(lineFrame, self.wallsAndBoundary)
-            debug = cv2.circle(debug, (xCoord, yCoord), 2, 1, -1)
-            # debug = drawGrids(debug, *self.N)
+            debug = cv2.circle(debug, (xCoord, yCoord), 2, 255, -1)
+            debug = drawGrids(debug, *self.N)
             display(debug)
 
         # Smallest euclidean distance
-        return min(186, cdist(coords[:, 0], [np.array(coord)]).min())
+        return cdist(coords[:, 0], [np.array(coord)]).min()
 
     # TODO: Account for case where position is inside wall
     def getDistGrid(self, gridCoord, angle):
@@ -258,7 +264,7 @@ class ParticleFilter:
         assert y < yN and y >= 0
 
         h, w, _ = self.frame.shape
-        gridH, gridW = h / xN, w / yN
+        gridH, gridW = h / yN, w / xN
 
         xMin, yMin = round(x * gridW), round((yN - y) * gridH)
         xCoords, yCoords = [], []
@@ -282,7 +288,7 @@ class ParticleFilter:
         xN, yN = self.N
 
         h, w, _ = self.frame.shape
-        gridH, gridW = h / xN, w / yN
+        gridH, gridW = h / yN, w / xN
 
         xMin, yMin = 0, round(yN * gridH)
         distsGrid = np.zeros(self.P * self.N)

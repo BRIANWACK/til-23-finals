@@ -172,10 +172,26 @@ def main():
 
         # Navigation loop.
         # navigator.given_navigation_loop(last_valid_pose, new_loi, target_rotation)
-        navigator.basic_navigation_loop(last_valid_pose, curr_loi, target_rotation)
+        navigator.basic_navigation_loop(last_valid_pose, new_loi, target_rotation)
 
-        # WASD Control
+        ##################
+        #   Test Cases   #
+        ##################
+
+        # Test basic movement (drive_speed) + visualisation
         # navigator.WASD_loop()
+
+        # Gimbal Tests
+        ## Test if gimbal responds to command
+        # navigator.gimbal_stationary_test()
+        ## Test if can command gimbal while moving
+        # navigator.gimbal_moving_test()
+
+        # TOF
+        # navigator.TOF_test()
+
+        # Test accuracy of DJI Robomaster SDK's move
+        # navigator.basic_navigation_test()
 
     robot.chassis.drive_speed(x=0.0, y=0.0, z=0.0, timeout=0.5)  # set stop for safety
     main_log.info("===== Mission Terminated =====")

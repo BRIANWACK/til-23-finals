@@ -50,7 +50,6 @@ def ang_diff_to_wp(pose: RealPose, curr_wp):
     ang_diff = ang_difference(ang_to_wp, pose[2])
     return ang_diff
 
-
 class Navigator:
     """Navigator class."""
 
@@ -72,6 +71,8 @@ class Navigator:
         self.VISUALIZE_FLAG = cfg["VISUALIZE_FLAG"]
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
+
+        self.BOARDSCALE = 0.5 # length of board in m
     
     def plan_path(self, start: list, goal) -> List[RealLocation]:
         """Plan path."""
@@ -252,7 +253,6 @@ class Navigator:
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
         # TODO: Add visualization code
-        BOARDSCALE = 0.5
 
         path = self.plan_path(last_valid_pose, curr_loi)
         if path is None: # Due to invalid pose
@@ -262,8 +262,8 @@ class Navigator:
         while path:
             wp = path[0]
             path = path[1:]
-            deltaX = BOARDSCALE*(wp.x - curr_estimated_pose.x)
-            deltaY = BOARDSCALE*(wp.y - curr_estimated_pose.y)
+            deltaX = self.BOARDSCALE*(wp.x - curr_estimated_pose.x)
+            deltaY = self.BOARDSCALE*(wp.y - curr_estimated_pose.y)
             self.robot.chassis.move(x=deltaX, y=deltaY).wait_for_completed()
             curr_estimated_pose = wp
 
@@ -272,8 +272,7 @@ class Navigator:
                     last_valid_pose.z, target_rotation
                 )  # current heading vs target heading
         self.robot.chassis.move(z=rel_ang).wait_for_completed()
-        
-
+    
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
         """Run manual control loop using WASD keys."""
         forward_vel = 0
@@ -346,6 +345,31 @@ class Navigator:
             # pitch = int(round(amplitude*np.sin(gimbalPhase/180)))
             # gimbalPhase += 1
             # self.robot.gimbal.moveto(pitch=pitch)
+
+    def gimbal_stationary_test(self):
+        pass
+
+    def gimbal_moving_test(self):
+        pass
+
+    def TOF_test(self):
+        def cb_distance(val):
+            print("[left,right,front,back]", val)
+
+        tof = self.robot.sensor
+        tof.sub_distance(freq=1, callback=cb_distance)
+        
+        while True:
+            pass
+
+    def basic_navigation_test(self):
+        """Move by 1 board length up, down, left, right, and turn 90 deg clockwise and anti-clockwise."""
+        self.robot.chassis.move(y=self.BOARDSCALE).wait_for_completed()
+        self.robot.chassis.move(y=-self.BOARDSCALE).wait_for_completed()
+        self.robot.chassis.move(x=-self.BOARDSCALE).wait_for_completed()
+        self.robot.chassis.move(x=self.BOARDSCALE).wait_for_completed()
+        self.robot.chassis.move(z=90).wait_for_completed()
+        self.robot.chassis.move(z=-90).wait_for_completed()
 
 
 # if __name__ == "__main__":
