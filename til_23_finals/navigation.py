@@ -90,11 +90,21 @@ class Navigator:
 
     def get_filtered_pose(self):
         """Get filtered pose."""
+        raise "Deprecated."
         pose = self.loc_service.get_pose()
         # no new pose data, continue to next iteration.
         if not pose:
             return None
         return self.pose_filter.update(pose)
+    
+    def get_raw_pose(self):
+        """Get raw pose."""
+        pose = self.loc_service.get_pose()
+        # NOTE: loc_service returns (None, None) lol.
+        if not isinstance(pose, RealPose):
+            return None
+        return pose
+
 
     def drawPose(self, mapMat, grid_location, heading):
         """Draw pose on map."""
@@ -258,7 +268,7 @@ class Navigator:
         def _cal(**kwargs):
             gimbalAction = self.robot.gimbal.move(**kwargs)
             while not gimbalAction.is_completed:
-                pose = self.get_filtered_pose()
+                pose = self.get_raw_pose()
                 if pose is not None:
                     poseList.append(pose)
                 time.sleep(0.25)
@@ -273,15 +283,22 @@ class Navigator:
         avg_x = np.mean([p[0] for p in poseList])
         avg_y = np.mean([p[1] for p in poseList])
 
-        real_pose = RealPose(x=avg_x, y=avg_y, z=0)
+        z_cal_n = 4
+        z_sum = 0.0
+        for _ in range(z_cal_n):
+            pose = self.get_raw_pose()
+            if pose is not None:
+                z_sum += pose[2]
+            time.sleep(0.25)
+        avg_z = z_sum / z_cal_n
+
+        real_pose = RealPose(x=avg_x, y=avg_y, z=avg_z)
         return real_pose
 
     def basic_navigation_loop(self, last_valid_pose: RealPose, curr_loi, target_rotation):
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
         # TODO: Add visualization code
-
-        print(self.map.width, self.map.height)
 
         last_valid_pose = self.getStartPose()
 
@@ -325,7 +342,6 @@ class Navigator:
 
         #     deltaX = self.BOARDSCALE/1*(wp.x - curr_estimated_pose.x)
         #     deltaY = self.BOARDSCALE/1*(wp.y - curr_estimated_pose.y)
-        #     # print(1/0)
         #     self.robot.chassis.move(x=deltaY, y=deltaX, xy_speed=0.8).wait_for_completed()
         #     self.robot.chassis.move(x=deltaY, y=deltaX, xy_speed=0.8).wait_for_completed()
         #     curr_estimated_pose = wp
@@ -343,6 +359,7 @@ class Navigator:
                 )  # current heading vs target heading
         # self.robot.chassis.move(z=rel_ang).wait_for_completed()
         self.robot.gimbal.move(yaw=rel_ang).wait_for_completed()
+        
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
         """Run manual control loop using WASD keys."""

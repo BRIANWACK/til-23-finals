@@ -108,12 +108,13 @@ def main():
         main_log.error("Bad response from challenge server.")
         return
 
-    for _ in range(10):
-        main_log.info(f"Warming up pose filter to reduce initial noise.")
-        pose = loc_service.get_pose()  # TODO: remove `clues`.
-        time.sleep(0.25)
+    # NOTE: Use nav.getStartPose() instead.
+    # for _ in range(10):
+    #     main_log.info(f"Warming up pose filter to reduce initial noise.")
+    #     pose = loc_service.get_pose()  # TODO: remove `clues`.
+    #     time.sleep(0.25)
 
-        pose = pose_filter.update(pose)
+    #     pose = pose_filter.update(pose)
 
     main_log.info(f">>>>> Autobot rolling out! <<<<<")
 
