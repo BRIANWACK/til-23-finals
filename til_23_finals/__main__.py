@@ -51,7 +51,7 @@ def main():
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="chassis_lead")
     if not IS_SIM:
-        robot.gimbal.recenter()
+        robot.gimbal.recenter().wait_for_completed()
 
     if IS_SIM:
 
@@ -119,7 +119,8 @@ def main():
 
     # Main loop
     while True:
-        pose = navigator.get_filtered_pose()
+        # navigator.gimbal_stationary_test(30, 90)
+        pose = navigator.getStartPose()
         if pose is None:
             continue
         real_location = RealLocation(x=pose[0], y=pose[1])

@@ -79,6 +79,7 @@ class Planner:
             Goal location.
         """
         return euclidean_distance(a, b)
+        # return abs(a[0]-b[0]) + abs(a[1]-b[1])
 
     def plan(self, start: RealLocation, goal: RealLocation) -> List[RealLocation]:
         """Plan in real coordinates.
