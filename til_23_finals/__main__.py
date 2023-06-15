@@ -48,27 +48,47 @@ def main():
 
     # === Initialize robot ===
     robot = Robot()
-    robot.initialize(conn_type="ap")
-    robot.set_robot_mode(mode="chassis_lead")
-    if not IS_SIM:
-        robot.gimbal.recenter().wait_for_completed()
 
+    # TODO: Move these elsewhere.
     if IS_SIM:
 
-        class Action:
+        class Gimbal:
             def __init__(self):
+                pass
+
+            def move(self, pitch=0, yaw=0):
+                robot.chassis.drive_speed(x=0, y=0, z=yaw/1)
+                return Action(1)
+
+            def recenter(self):
+                return Action(1)
+
+        class Action:
+            def __init__(self, pause):
+                self.start = time.time()
+                self.pause = pause
                 pass
 
             def wait_for_completed(self):
                 """Block till action is completed."""
-                time.sleep(1)
+                time.sleep(self.pause)
+
+            @property
+            def is_completed(self):
+                return time.time() - self.start > self.pause
 
         def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
-            self.drive_speed(x, y, z)
-            return Action()
+            print(f"move x: {x}, y: {y}, z: {z}")
+            self.drive_speed(x/1, y/1, z/1)
+            return Action(1)
 
         bound_method = move.__get__(robot.chassis, robot.chassis.__class__)
         setattr(robot.chassis, "move", bound_method)
+        setattr(robot, "gimbal", Gimbal())
+
+    robot.initialize(conn_type="ap")
+    robot.set_robot_mode(mode="free")
+    robot.gimbal.recenter().wait_for_completed()
 
     # === Initialize planner ===
     map_: SignedDistanceGrid = loc_service.get_map()

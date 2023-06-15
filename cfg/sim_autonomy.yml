@@ -1,7 +1,7 @@
 # Set to false to use the provided mock models.
 # Set to true to use your own models, but the organizing team does NOT
 # provide real model implementations - you have to integrate them in.
-use_real_models: true
+use_real_models: false
 
 # Use real localization server (physical localization server and real robot)
 # or simulated localization server (til-simulator and mock robomaster).
