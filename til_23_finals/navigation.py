@@ -302,9 +302,12 @@ class Navigator:
 
         last_valid_pose = self.getStartPose()
 
+        if ((last_valid_pose.x - curr_loi.x)**2 + (last_valid_pose.y - curr_loi.y)**2)**0.5 < self.REACHED_THRESHOLD_M:
+            return True, last_valid_pose
+
         path = self.plan_path(last_valid_pose, curr_loi)
         if path is None: # Due to invalid pose
-            return
+            return False, last_valid_pose
         
         # self.gimbal_stationary_test(30, 90)
         curr_estimated_pose = last_valid_pose
@@ -354,11 +357,11 @@ class Navigator:
         self.robot.chassis.move(y=deltaX, xy_speed=speed).wait_for_completed()
 
         # Check direction
-        rel_ang = ang_difference(
-                    last_valid_pose.z, target_rotation
-                )  # current heading vs target heading
+        # current heading vs target heading
+        # rel_ang = ang_difference(last_valid_pose.z, target_rotation)  
         # self.robot.chassis.move(z=rel_ang).wait_for_completed()
-        self.robot.gimbal.move(yaw=rel_ang).wait_for_completed()
+        # self.robot.gimbal.move(yaw=rel_ang).wait_for_completed()
+        return False, last_valid_pose
         
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
