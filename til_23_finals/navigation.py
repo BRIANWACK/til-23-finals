@@ -346,13 +346,25 @@ class Navigator:
             # gimbalPhase += 1
             # self.robot.gimbal.moveto(pitch=pitch)
 
-    def gimbal_stationary_test(self):
-        pass
+    def gimbal_stationary_test(self, pitchMag, yawMag):
+        self.robot.gimbal.recenter().wait_for_completed()
+        self.robot.gimbal.move(pitch=-pitchMag).wait_for_completed()
+        self.robot.gimbal.move(pitch=pitchMag).wait_for_completed()
+        self.robot.gimbal.move(yaw=-yawMag).wait_for_completed()
+        self.robot.gimbal.move(yaw=yawMag).wait_for_completed()
 
     def gimbal_moving_test(self):
-        pass
+        robotMoveAction = self.robot.chassis.move(y=self.BOARDSCALE)
+        gimbalMoveAction = self.robot.gimbal.move(pitch=-60)
+        gimbalMoveAction.wait_for_completed()
+        robotMoveAction.wait_for_completed()
 
+    def gimbal_moving_test2(self):
+        pass
+        
     def TOF_test(self):
+        print(f"Distance Sensor Version No.: {self.robot.sensor.get_version()}")
+
         def cb_distance(val):
             print("[left,right,front,back]", val)
 
