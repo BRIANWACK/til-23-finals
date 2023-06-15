@@ -3,6 +3,7 @@
 import logging
 from typing import List
 
+import numpy as np
 import torch
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
 from til_23_asr import VoiceExtractor
@@ -28,6 +29,8 @@ DEFAULT_EXTRACTOR_CFG = dict(
     use_ori=False,
     noise_removal_limit_db=5,
 )
+
+USE_EXTRACTOR = False
 
 
 class NeMoSpeakerIDService(AbstractSpeakerIDService):
@@ -74,21 +77,28 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
 
         cfg = {**DEFAULT_EXTRACTOR_CFG, **CUSTOM_EXTRACTOR_CFG.get(team_id, {})}
         raw, raw_sr = torch.tensor(audio_waveform, device=self.device), sampling_rate
-        clean, clean_sr = self.extractor.forward(raw, sampling_rate, **cfg)
+
+        if USE_EXTRACTOR:
+            clean, clean_sr = self.extractor.forward(raw, sampling_rate, **cfg)
 
         raw = resample(raw, orig_freq=raw_sr, new_freq=self.model_sr)
-        clean = resample(clean, orig_freq=clean_sr, new_freq=self.model_sr)
         raw = raw[None]
         wav_len = torch.tensor([raw.shape[1]], device=self.device)
-        clean = clean[None]
-        clean_len = torch.tensor([clean.shape[1]], device=self.device)
-
         _, raw_embed = self.model.forward(input_signal=raw, input_signal_length=wav_len)
-        _, clean_embed = self.model.forward(
-            input_signal=clean, input_signal_length=clean_len
-        )
+        raw_embed = raw_embed[0].numpy(force=True)
 
-        return raw_embed[0].numpy(force=True), clean_embed[0].numpy(force=True)
+        if USE_EXTRACTOR:
+            clean = resample(clean, orig_freq=clean_sr, new_freq=self.model_sr)
+            clean = clean[None]
+            clean_len = torch.tensor([clean.shape[1]], device=self.device)
+            _, clean_embed = self.model.forward(
+                input_signal=clean, input_signal_length=clean_len
+            )
+            clean_embed = clean_embed[0].numpy(force=True)
+        else:
+            clean_embed = np.ones_like(raw_embed)
+
+        return raw_embed, clean_embed
 
     def clear_speakers(self):
         """Clear all enrolled speakers."""

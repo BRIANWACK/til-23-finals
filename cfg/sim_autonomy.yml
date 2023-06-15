@@ -25,8 +25,8 @@ PHOTO_DIR: temp/imgs
 # Use absolute path.
 ZIP_SAVE_DIR: temp
 
-MY_TEAM_NAME: BRIANWACK
-OPPONENT_TEAM_NAME: PALMTREE # Change depending on simulator case!
+MY_TEAM_NAME: 10000SGDMRT
+OPPONENT_TEAM_NAME: ACESOFSPADES # Change depending on simulator case!
 
 # Images of plushies to Re-ID.
 SUSPECT_IMG: data/simulator/sim_suspect.png
@@ -35,7 +35,7 @@ SPEAKER_DIR: data/audio/train
 
 # These model paths/directories are not actually being used by the sample code provided.
 # But you are recommened to use such config params to connect your code to ur models.
-NLP_MODEL_DIR: models/large-v2.pt
+NLP_MODEL_DIR: models/medium.en.pt
 
 CV_MODEL_DIR: models/det.pt
 

@@ -63,7 +63,7 @@ def enable_camera(robot, photo_dir: Optional[Path] = None):
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         photo_path = photo_dir / f"cam_{timestamp}.jpg"
-        if not cv2.imwrite(photo_path, img):
+        if not cv2.imwrite(str(photo_path), img):
             data_log.warning(f"Could not save photo: {photo_path}")
         else:
             data_log.debug(f"Photo saved: {photo_path}")
@@ -151,9 +151,10 @@ def viz_reid(img: np.ndarray, objects: List[ReIDObject]):
             raise ValueError(f"Invalid reid class: {obj.cls}")
         font = cv2.FONT_HERSHEY_SIMPLEX
 
+        text_pt = (obj.x, max(0, obj.y - 10))
         img = cv2.rectangle(img, (obj.x, obj.y, obj.w, obj.h), col, 3)
         img = cv2.putText(
-            img, f"{obj.cls.value} {obj.sim:.3f}", (obj.x, obj.y), font, 0.5, col, 2
+            img, f"{obj.cls.value} {obj.sim:.3f}", text_pt, font, 0.5, col, 2
         )
 
     return img

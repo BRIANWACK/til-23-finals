@@ -104,7 +104,9 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
 
         # TODO: Save audio files for debugging.
         wav = torch.tensor(audio_waveform, device=self.device)
-        wav, sr = self.extractor.forward(wav, sampling_rate)
+        # NOTE: The denoiser hurts digit recognition performance.
+        # wav, sr = self.extractor.forward(wav, sampling_rate)
+        wav, sr = wav, sampling_rate
 
         wav = resample(wav, orig_freq=sr, new_freq=WHISPER_SAMPLE_RATE)
         # See: https://github.com/huggingface/transformers/pull/21263
@@ -113,7 +115,7 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         mel = whisper.log_mel_spectrogram(wav)
         mel = mel.to(self.device)
 
-        result = whisper.decode(self.model, mel, self.options)[0]
+        result = whisper.decode(self.model, mel, self.options)
         # TODO: Use result.no_speech_prob to determine if VoiceExtractor failed,
         # in which case, fallback to source audio or less aggressive extraction.
         # Also fallback if no digits or more than one digit detected?
