@@ -15,10 +15,19 @@ git submodule update --init --recursive
 
 ```sh
 pip install -r requirements.txt
+pip install -e ./til-23-cv/ultralytics
 pip install -e ./til-23-cv
 pip install -e ./til-23-sdk2
 pip install -e ./til-23-asr
-pip install -e ./til-23-cv/ultralytics
+```
+
+```sh
+pip install pip-whl/*
+pip install sdk-whl/*
+pip install whl/*
+pip install -e ./til-23-cv/ultralytics --no-build-isolation --no-deps
+pip install -e ./til-23-cv --no-build-isolation --no-deps
+pip install -e ./til-23-asr --no-build-isolation --no-deps
 ```
 
 ```sh

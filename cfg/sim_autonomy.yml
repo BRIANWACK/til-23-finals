@@ -35,7 +35,7 @@ SPEAKER_DIR: data/audio/train
 
 # These model paths/directories are not actually being used by the sample code provided.
 # But you are recommened to use such config params to connect your code to ur models.
-NLP_MODEL_DIR: models/medium.en.pt
+NLP_MODEL_DIR: models/large-v2.pt
 
 CV_MODEL_DIR: models/det.pt
 
