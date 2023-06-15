@@ -72,7 +72,7 @@ class Navigator:
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
 
-        self.BOARDSCALE = 0.5 # length of board in m
+        self.BOARDSCALE = 0.955 # length of board in m
     
     def plan_path(self, start: list, goal) -> List[RealLocation]:
         """Plan path."""
@@ -90,11 +90,21 @@ class Navigator:
 
     def get_filtered_pose(self):
         """Get filtered pose."""
+        raise "Deprecated."
         pose = self.loc_service.get_pose()
         # no new pose data, continue to next iteration.
         if not pose:
             return None
         return self.pose_filter.update(pose)
+    
+    def get_raw_pose(self):
+        """Get raw pose."""
+        pose = self.loc_service.get_pose()
+        # NOTE: loc_service returns (None, None) lol.
+        if not isinstance(pose, RealPose):
+            return None
+        return pose
+
 
     def drawPose(self, mapMat, grid_location, heading):
         """Draw pose on map."""
@@ -250,30 +260,110 @@ class Navigator:
 
         return curr_wp, prev_loi, curr_loi, try_start_tasks
 
+    def getStartPose(self, pitchMag=30, yawMag=30):
+        poseList = []
+        
+        self.robot.gimbal.recenter().wait_for_completed()
+
+        def _cal(**kwargs):
+            gimbalAction = self.robot.gimbal.move(**kwargs)
+            while not gimbalAction.is_completed:
+                pose = self.get_raw_pose()
+                if pose is not None:
+                    poseList.append(pose)
+                time.sleep(0.25)
+            gimbalAction.wait_for_completed()
+
+        _cal(pitch=-pitchMag)
+        _cal(pitch=pitchMag)
+        _cal(yaw=-yawMag)
+        _cal(yaw=yawMag)
+        self.robot.gimbal.recenter().wait_for_completed()
+
+        avg_x = np.mean([p[0] for p in poseList])
+        avg_y = np.mean([p[1] for p in poseList])
+
+        z_cal_n = 4
+        z_sum = 0.0
+        for _ in range(z_cal_n):
+            pose = self.get_raw_pose()
+            if pose is not None:
+                z_sum += pose[2]
+            time.sleep(0.25)
+        avg_z = z_sum / z_cal_n
+
+        real_pose = RealPose(x=avg_x, y=avg_y, z=avg_z)
+        return real_pose
+
     def basic_navigation_loop(self, last_valid_pose: RealPose, curr_loi, target_rotation):
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
         # TODO: Add visualization code
 
+        last_valid_pose = self.getStartPose()
+
+        if ((last_valid_pose.x - curr_loi.x)**2 + (last_valid_pose.y - curr_loi.y)**2)**0.5 < self.REACHED_THRESHOLD_M:
+            return True, last_valid_pose
+
         path = self.plan_path(last_valid_pose, curr_loi)
         if path is None: # Due to invalid pose
-            return
+            return False, last_valid_pose
         
-        curr_estimated_pose = [last_valid_pose.x, last_valid_pose.y]
-        while path:
-            wp = path[0]
-            path = path[1:]
-            deltaX = self.BOARDSCALE*(wp.x - curr_estimated_pose.x)
-            deltaY = self.BOARDSCALE*(wp.y - curr_estimated_pose.y)
-            self.robot.chassis.move(x=deltaX, y=deltaY).wait_for_completed()
-            curr_estimated_pose = wp
+        # self.gimbal_stationary_test(30, 90)
+        curr_estimated_pose = last_valid_pose
+        n = 1
+
+        if self.VISUALIZE_FLAG:
+            mapMat = self.map.grid.copy()
+
+            grid_location = self.map.real_to_grid(curr_estimated_pose)
+            self.drawPose(mapMat, grid_location, last_valid_pose[2])
+
+            for wp in path[::n]:
+                grid_wp = self.map.real_to_grid(wp)
+                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, 0, 1)
+            
+            cv2.waitKey(1)
+            cv2.imshow("Map", imutils.resize(mapMat, width=600))
+
+        # while path:
+        #     wp = path[0]
+        #     path = path[n:]
+
+        #     if self.VISUALIZE_FLAG:
+
+        #         grid_location = self.map.real_to_grid(curr_estimated_pose)
+        #         grid_wp = self.map.real_to_grid(wp)
+
+        #         self.drawPose(mapMat, grid_location, last_valid_pose[2])
+
+        #         cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 5, 0, -1)
+
+        #         cv2.waitKey(1)
+
+        #         cv2.imshow("Map", imutils.resize(mapMat, width=600))
+
+        #     deltaX = self.BOARDSCALE/1*(wp.x - curr_estimated_pose.x)
+        #     deltaY = self.BOARDSCALE/1*(wp.y - curr_estimated_pose.y)
+        #     self.robot.chassis.move(x=deltaY, y=deltaX, xy_speed=0.8).wait_for_completed()
+        #     self.robot.chassis.move(x=deltaY, y=deltaX, xy_speed=0.8).wait_for_completed()
+        #     curr_estimated_pose = wp
+
+        speed = 0.7
+        scale = 1
+        deltaX = self.BOARDSCALE/scale*(curr_loi.x - curr_estimated_pose.x)
+        deltaY = self.BOARDSCALE/scale*(curr_loi.y - curr_estimated_pose.y)
+        self.robot.chassis.move(x=deltaY, xy_speed=speed).wait_for_completed()
+        self.robot.chassis.move(y=deltaX, xy_speed=speed).wait_for_completed()
 
         # Check direction
-        rel_ang = ang_difference(
-                    last_valid_pose.z, target_rotation
-                )  # current heading vs target heading
-        self.robot.chassis.move(z=rel_ang).wait_for_completed()
-    
+        # current heading vs target heading
+        # rel_ang = ang_difference(last_valid_pose.z, target_rotation)  
+        # self.robot.chassis.move(z=rel_ang).wait_for_completed()
+        # self.robot.gimbal.move(yaw=rel_ang).wait_for_completed()
+        return False, last_valid_pose
+        
+
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
         """Run manual control loop using WASD keys."""
         forward_vel = 0

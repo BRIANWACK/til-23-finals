@@ -51,7 +51,7 @@ def main():
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="chassis_lead")
     if not IS_SIM:
-        robot.gimbal.recenter()
+        robot.gimbal.recenter().wait_for_completed()
 
     if IS_SIM:
 
@@ -89,6 +89,7 @@ def main():
     target_rotation = None
     # Whether to try and start AI tasks.
     try_start_tasks = False
+    last_pose = None
 
     # === Initialize pose filter to smooth out noisy pose data ===
     pose_filter = SimpleMovingAverage(n=3)
@@ -108,39 +109,41 @@ def main():
         main_log.error("Bad response from challenge server.")
         return
 
-    for _ in range(10):
-        main_log.info(f"Warming up pose filter to reduce initial noise.")
-        pose = loc_service.get_pose()  # TODO: remove `clues`.
-        time.sleep(0.25)
+    # NOTE: Use nav.getStartPose() instead.
+    # for _ in range(10):
+    #     main_log.info(f"Warming up pose filter to reduce initial noise.")
+    #     pose = loc_service.get_pose()  # TODO: remove `clues`.
+    #     time.sleep(0.25)
 
-        pose = pose_filter.update(pose)
+    #     pose = pose_filter.update(pose)
 
     main_log.info(f">>>>> Autobot rolling out! <<<<<")
 
     # Main loop
     while True:
-        pose = navigator.get_filtered_pose()
-        if pose is None:
-            continue
-        real_location = RealLocation(x=pose[0], y=pose[1])
-        grid_location = map_.real_to_grid(real_location)
-        if map_.in_bounds(grid_location) and map_.passable(grid_location):
-            last_valid_pose = pose
-        else:
-            mapGridUpperBounds = GridLocation(map_.width, map_.height)
-            # mapGridLowerBounds = GridLocation(0, 0)
+        # navigator.gimbal_stationary_test(30, 90)
+        # pose = navigator.getStartPose()
+        # if pose is None:
+        #     continue
+        # real_location = RealLocation(x=pose[0], y=pose[1])
+        # grid_location = map_.real_to_grid(real_location)
+        # if map_.in_bounds(grid_location) and map_.passable(grid_location):
+        #     last_valid_pose = pose
+        # else:
+        #     mapGridUpperBounds = GridLocation(map_.width, map_.height)
+        #     # mapGridLowerBounds = GridLocation(0, 0)
 
-            print(grid_location, (map_.width, map_.height))
-            print(real_location, map_.grid_to_real(mapGridUpperBounds))
-            # print(f"{map_.grid_to_real(mapGridLowerBounds)} to {map_.grid_to_real(mapGridUpperBounds)}")
-            main_log.warning(f"Invalid pose received from localization server.")
-            continue
+        #     print(grid_location, (map_.width, map_.height))
+        #     print(real_location, map_.grid_to_real(mapGridUpperBounds))
+        #     # print(f"{map_.grid_to_real(mapGridLowerBounds)} to {map_.grid_to_real(mapGridUpperBounds)}")
+        #     main_log.warning(f"Invalid pose received from localization server.")
+        #     continue
 
         # TEMP
         # try_start_tasks = True
         if try_start_tasks:
             ## Check whether robot's pose is a checkpoint or not.
-            info = rep_service.check_pose(pose)
+            info = rep_service.check_pose(last_pose)
             if type(info) == str:
                 if info == "End Goal Reached":
                     rep_service.end_run()
@@ -157,7 +160,7 @@ def main():
                     # is expecting the robot to be even closer to the checkpoint.
                     # TODO:  Robot should try to get closer to the checkpoint.
                     try_start_tasks = False
-                    new_loi = prev_loi  # Try to navigate to prev loi again. May need to get bot to do
+                    # new_loi = prev_loi  # Try to navigate to prev loi again. May need to get bot to do
                     # a pre-programmed sequence (e.g. shifting around slowly until its
                     # position is close enough to the checkpoint).
                 else:
@@ -181,7 +184,7 @@ def main():
             # AI Loop.
             if try_start_tasks:
                 main_log.info("===== Starting AI tasks =====")
-                target_pose = ai_loop(robot)
+                target_pose = ai_loop(robot, last_pose)
                 new_loi = RealLocation(x=target_pose[0], y=target_pose[1])
                 target_rotation = target_pose[2]
                 main_log.info("===== AI tasks complete =====")
@@ -189,7 +192,12 @@ def main():
 
         # Navigation loop.
         # navigator.given_navigation_loop(last_valid_pose, new_loi, target_rotation)
-        navigator.basic_navigation_loop(last_valid_pose, new_loi, target_rotation)
+        at_pos, last_pose = navigator.basic_navigation_loop(None, new_loi, target_rotation)
+        # NOTE: last_pose is only the current pose if at_pos is true
+        if at_pos:
+            delta_z = last_pose.z - target_rotation
+            robot.gimbal.move(yaw=delta_z).wait_for_completed()
+            try_start_tasks = True
 
         ##################
         #   Test Cases   #

@@ -134,7 +134,7 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         main_log.info(f"Submitting password {password} to report_digit API.")
         return rep.report_digit(pose, tuple(password))
 
-    def loop(robot: Robot):
+    def loop(robot: Robot, pose):
         """Run AI phase of main loop."""
         robot.chassis.drive_speed()
         # TODO: Test if necessary.
@@ -142,9 +142,6 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
 
         # NOTE: This pose only used by judges to verify robot is near checkpoint.
         # As such, it doesn't have to be correct/constantly measured.
-        # TODO: Get last pose from navigation instead to avoid unnecessary relocalization
-        # routine. Unless, we can run said routine concurrently.
-        pose = nav.get_filtered_pose()
 
         main_log.info("===== Object ReID =====")
         save_path = _reid(robot, pose, None)
