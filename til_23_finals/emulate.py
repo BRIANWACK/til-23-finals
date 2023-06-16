@@ -18,9 +18,11 @@ class Action:
 
     @property
     def _time_left(self):
-        if self.callback is not None:
+        left = self.pause + self.start - time.time()
+        if left <= 0 and self.callback is not None:
             self.callback()
-        return self.pause + self.start - time.time()
+            self.callback = None
+        return left
 
     @property
     def is_completed(self):
