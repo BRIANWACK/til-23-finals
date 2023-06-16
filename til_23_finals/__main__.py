@@ -185,6 +185,9 @@ if __name__ == "__main__":
     IS_SIM = not cfg["use_real_localization"]
     if IS_SIM:
         from tilsdk.mock_robomaster.robot import Robot
+
+        # Wait for simulator to start.
+        time.sleep(2)
     else:
         from robomaster.robot import Robot
 

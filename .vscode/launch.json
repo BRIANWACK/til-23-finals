@@ -9,8 +9,39 @@
       "type": "python",
       "request": "launch",
       "module": "til_23_finals",
+      "args": ["--config", "cfg/autonomy_cfg.yml"],
+      "justMyCode": true
+    },
+    {
+      "name": "Run Sim Robot",
+      "type": "python",
+      "request": "launch",
+      "module": "til_23_finals",
       "args": ["--config", "cfg/sim_autonomy.yml"],
       "justMyCode": true
+    },
+    {
+      "name": "Run Score Server",
+      "type": "python",
+      "request": "launch",
+      "module": "tilscoring.server",
+      "args": ["cfg/scoring_cfg.yml", "--out_dir", "logs"],
+      "justMyCode": true
+    },
+    {
+      "name": "Run Sim Server",
+      "type": "python",
+      "request": "launch",
+      "module": "tilsim.simulator",
+      "args": ["--config", "cfg/sim_cfg.yml"],
+      "justMyCode": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Simulator",
+      "configurations": ["Run Sim Server", "Run Score Server", "Run Sim Robot"],
+      "stopAll": true
     }
   ]
 }

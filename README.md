@@ -37,6 +37,8 @@ conda install sox libsndfile ffmpeg -c conda-forge
 
 ## Run
 
+NOTE: There is now a VSCode Debug Launch Config ("Simulator") that launches everything needed for simulation.
+
 ```sh
 # In separate terminals.
 til-scoring cfg/scoring_cfg.yml -o logs

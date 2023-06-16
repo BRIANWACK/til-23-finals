@@ -1,7 +1,7 @@
 # Set to false to use the provided mock models.
 # Set to true to use your own models, but the organizing team does NOT
 # provide real model implementations - you have to integrate them in.
-use_real_models: false
+use_real_models: true
 
 # Use real localization server (physical localization server and real robot)
 # or simulated localization server (til-simulator and mock robomaster).
@@ -41,9 +41,9 @@ CV_MODEL_DIR: models/det.pt
 
 REID_MODEL_DIR: models/reid.pt
 
-DENOISE_MODEL_DIR: models/DeepFilterNet3
-
 SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
+
+DENOISE_MODEL_DIR: models/DeepFilterNet3
 
 VISUALIZE_FLAG: true
 
@@ -51,4 +51,3 @@ SCORE_SERVER_IP: 172.16.118.20
 SCORE_SERVER_PORT: 5512
 LOCALIZATION_SERVER_IP: 172.16.118.20
 LOCALIZATION_SERVER_PORT: 5577
-ROBOT_IP: 172.16.118.140
