@@ -140,27 +140,29 @@ def main():
             tgt_pose = ai_loop(robot, last_pose)
             main_log.info(f"New target: {tgt_pose}")
 
-        ##################
-        #   Test Cases   #
-        ##################
+    # ===== Test Cases =====
+    if False:
+        from .tests import (
+            TOF_test,
+            WASD_loop,
+            basic_navigation_test,
+            gimbal_moving_test,
+            gimbal_stationary_test,
+            heading_test,
+        )
 
         # Test heading.
-        # navigator.heading_test()
-
+        heading_test(navigator)
         # Test basic movement (drive_speed) + visualisation
-        # navigator.WASD_loop()
-
-        # Gimbal Tests
-        ## Test if gimbal responds to command
-        # navigator.gimbal_stationary_test()
-        ## Test if can command gimbal while moving
-        # navigator.gimbal_moving_test()
-
+        WASD_loop(navigator)
+        # Test if gimbal responds to command
+        gimbal_stationary_test(navigator)
+        # Test if can command gimbal while moving
+        gimbal_moving_test(navigator)
         # TOF
-        # navigator.TOF_test()
-
+        TOF_test(navigator)
         # Test accuracy of DJI Robomaster SDK's move
-        # navigator.basic_navigation_test()
+        basic_navigation_test(navigator)
 
     robot.chassis.drive_speed()  # Brake.
     main_log.info("===== Mission Terminated =====")

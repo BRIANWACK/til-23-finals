@@ -91,12 +91,8 @@ class Navigator:
 
     def get_filtered_pose(self):
         """Get filtered pose."""
-        nav_log.critical(
-            "`get_filtered_pose` is deprecated! Use `measure_pose` instead."
-        )
-        pose = self.loc_service.get_pose()
-        # no new pose data, continue to next iteration.
-        if not pose:
+        pose = self.get_raw_pose()
+        if pose is None:
             return None
         return self.pose_filter.update(pose)
 
@@ -355,8 +351,6 @@ class Navigator:
         the measured initial pose. If the initial pose is close to the target pose,
         no movement is performed.
         """
-        # TODO: Test movement accuracy, no simulator equivalent
-        # TODO: Measure length of board, assumed to be 0.5 m now
         ini_pose = self.wait_for_valid_pose() if ini_pose is None else ini_pose
         nav_log.info(f"Start: {ini_pose}")
         nav_log.info(f"Target: {tgt_pose}")
@@ -421,125 +415,3 @@ class Navigator:
 
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
-
-    def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
-        """Run manual control loop using WASD keys."""
-        forward_vel = 0
-        rightward_vel = 0
-        ang_vel = 0
-
-        # gimbalPhase = 0
-        # self.robot.gimbal.recenter()
-
-        while True:
-            pose = self.get_filtered_pose()
-            print(pose)
-            if pose is None:
-                continue
-
-            real_location = RealLocation(x=pose[0], y=pose[1])
-            grid_location = self.map.real_to_grid(real_location)
-
-            mapMat = self.map.grid.copy()
-            mapMat = viz_pose(mapMat, grid_location, pose[2])
-
-            key = cv2.waitKey(1)
-            if key == ord("w") or key == ord("W"):
-                forward_vel = trans_vel_mag
-                rightward_vel = 0
-                ang_vel = 0
-            elif key == ord("a") or key == ord("A"):
-                forward_vel = 0
-                rightward_vel = -trans_vel_mag
-                ang_vel = 0
-            elif key == ord("s") or key == ord("S"):
-                forward_vel = -trans_vel_mag
-                rightward_vel = 0
-                ang_vel = 0
-            elif key == ord("d") or key == ord("D"):
-                forward_vel = 0
-                rightward_vel = trans_vel_mag
-                ang_vel = 0
-            elif key == ord("q") or key == ord("Q"):
-                forward_vel = 0
-                rightward_vel = 0
-                ang_vel = -ang_vel_mag
-            elif key == ord("e") or key == ord("E"):
-                forward_vel = 0
-                rightward_vel = 0
-                ang_vel = ang_vel_mag
-            elif key == 27:
-                cv2.destroyAllWindows()
-                break
-            else:
-                forward_vel = 0
-                rightward_vel = 0
-                ang_vel = 0
-
-            self.robot.chassis.drive_speed(x=forward_vel, y=rightward_vel, z=ang_vel)
-
-            mapMat = imutils.resize(mapMat, width=600)
-            cv2.imshow("Map", mapMat)
-
-            plt.ion()
-            plt.scatter(grid_location.x, grid_location.y)
-            plt.draw()
-            plt.pause(0.01)
-
-            self.robot._modules["DistanceSensor"].sub_distance(
-                freq=1, callback=lambda x: print("TOF", x)
-            )
-
-            # amplitude = 30
-            # pitch = int(round(amplitude*np.sin(gimbalPhase/180)))
-            # gimbalPhase += 1
-            # self.robot.gimbal.moveto(pitch=pitch)
-
-    def gimbal_stationary_test(self, pitchMag, yawMag):
-        self.robot.gimbal.recenter().wait_for_completed()
-        self.robot.gimbal.move(pitch=-pitchMag).wait_for_completed()
-        self.robot.gimbal.move(pitch=pitchMag).wait_for_completed()
-        self.robot.gimbal.move(yaw=-yawMag).wait_for_completed()
-        self.robot.gimbal.move(yaw=yawMag).wait_for_completed()
-
-    def gimbal_moving_test(self):
-        robotMoveAction = self.robot.chassis.move(y=self.BOARDSCALE)
-        gimbalMoveAction = self.robot.gimbal.move(pitch=-60)
-        gimbalMoveAction.wait_for_completed()
-        robotMoveAction.wait_for_completed()
-
-    def heading_test(self):
-        """Test if turning to various headings is correct."""
-        import random
-
-        cur_pose = self.measure_pose(heading_only=True)
-        print(f"INITIAL HEADING: {cur_pose.z}")
-        tgt = random.randint(0, 359)
-        print(f"TARGET HEADING: {tgt}")
-        self.set_heading(cur_pose.z, tgt, spd=30.0).wait_for_completed()
-        cur_pose = self.measure_pose(heading_only=True)
-        print(f"FINAL HEADING: {cur_pose.z}")
-
-    def gimbal_moving_test2(self):
-        pass
-
-    def TOF_test(self):
-        print(f"Distance Sensor Version No.: {self.robot.sensor.get_version()}")
-
-        def cb_distance(val):
-            print("[left,right,front,back]", val)
-
-        tof = self.robot.sensor
-        tof.sub_distance(freq=1, callback=cb_distance)
-
-        while True:
-            pass
-
-    def basic_navigation_test(self):
-        """Move by 1 board length up, down, left, right, and turn 90 deg clockwise and anti-clockwise."""
-        self.robot.chassis.move(y=self.BOARDSCALE).wait_for_completed()
-        self.robot.chassis.move(y=-self.BOARDSCALE).wait_for_completed()
-        self.robot.chassis.move(x=-self.BOARDSCALE).wait_for_completed()
-        self.robot.chassis.move(x=self.BOARDSCALE).wait_for_completed()
-        self.robot.chassis.move(z=90).wait_for_completed()
-        self.robot.chassis.move(z=-90).wait_for_completed()
