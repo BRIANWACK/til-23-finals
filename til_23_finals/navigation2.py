@@ -196,18 +196,18 @@ class GridNavigator(Navigator):
             return False, ini_pose
 
         if self.VISUALIZE_FLAG:
-            mapMat = self.map.grid.copy()
+            mapMat = self.map.grid[:, :, None].repeat(3, axis=2)
 
             # Visualize start and end poses.
             cur_grid_loc = self.map.real_to_grid(ini_pose)
             tgt_grid_loc = self.map.real_to_grid(tgt_pose)
-            viz_pose(mapMat, cur_grid_loc, ini_pose.z)
-            viz_pose(mapMat, tgt_grid_loc, tgt_pose.z)
+            mapMat = viz_pose(mapMat, cur_grid_loc, ini_pose.z, (0, 255, 0))
+            mapMat = viz_pose(mapMat, tgt_grid_loc, tgt_pose.z, (0, 0, 255))
 
             # Visualize path taken.
             for wp in path[::skips]:
                 grid_wp = self.map.real_to_grid(wp)
-                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, 0, 1)
+                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (255, 0, 0), -1)
 
             cv2.imshow("Map", imutils.resize(mapMat, width=600))
             cv2.waitKey(1)
@@ -218,7 +218,7 @@ class GridNavigator(Navigator):
         self.set_heading(ini_pose.z, align, spd=z_spd).wait_for_completed()
 
         cur_pose = ini_pose
-        while False and path:
+        while False and len(path) > 0:
             wp = path[0]
             path = path[skips:]
 
@@ -226,7 +226,7 @@ class GridNavigator(Navigator):
                 grid_wp = self.map.real_to_grid(wp)
 
                 # Mark current waypoint.
-                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 4, 0, -1)
+                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (128, 128, 128), -1)
                 cv2.imshow("Map", imutils.resize(mapMat, width=600))
                 cv2.waitKey(1)
 
