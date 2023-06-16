@@ -19,9 +19,8 @@ class Action:
     @property
     def _time_left(self):
         left = self.pause + self.start - time.time()
-        if left <= 0 and self.callback is not None:
-            self.callback()
-            self.callback = None
+        if left <= 0:
+            self._trigger()
         return left
 
     @property
@@ -29,11 +28,17 @@ class Action:
         """Whether action is completed."""
         return self._time_left <= 0
 
+    def _trigger(self):
+        if self.callback is not None:
+            self.callback()
+            self.callback = None
+
     def wait_for_completed(self):
         """Block till action is completed."""
         if self.is_completed:
             return
         time.sleep(self._time_left)
+        self._trigger()
 
 
 class Gimbal:
@@ -56,15 +61,20 @@ class Gimbal:
 
 def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
     """Mock move."""
+    eps = 0.1
     assert z == 0 or (x == 0 and y == 0), "Cannot move in xy and z at the same time."
     if z == 0:
         d = (x**2 + y**2) ** 0.5
         t = d / xy_speed
         log.info(f"[chassis.move] x: {x}, y: {y}, t: {t}")
+        if t < eps:
+            return Action(0, lambda: self.drive_speed())
         self.drive_speed(x / t, y / t, 0)
     else:
         t = abs(z) / z_speed
         log.info(f"[chassis.move] z: {z}, t: {t}")
+        if t < eps:
+            return Action(0, lambda: self.drive_speed())
         self.drive_speed(0, 0, z / t)
     return Action(t, lambda: self.drive_speed())
 
