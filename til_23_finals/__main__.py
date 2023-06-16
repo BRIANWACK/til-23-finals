@@ -40,7 +40,6 @@ main_log = logging.getLogger("Main")
 def main():
     """Run main loop."""
     # === Initialize admin services ===
-    # If passthrough sim, use sim's ip address.
     loc_service = LocalizationService(
         host=LOCALIZATION_SERVER_IP, port=LOCALIZATION_SERVER_PORT
     )
@@ -53,14 +52,13 @@ def main():
 
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="free")
-    robot.gimbal.recenter().wait_for_completed()
 
     # === Initialize planner ===
-    map_: SignedDistanceGrid = loc_service.get_map()
+    arena_map: SignedDistanceGrid = loc_service.get_map()
     # Dilate obstacles virtually so that planner avoids bringing robot too close
     # to real obstacles.
-    map_ = map_.dilated(ROBOT_RADIUS_M)
-    planner = Planner(map_, sdf_weight=0.5)
+    arena_map = arena_map.dilated(ROBOT_RADIUS_M)
+    planner = Planner(arena_map, sdf_weight=0.5)
 
     # === Loop State/Flags ===
     # Current location of interest.
@@ -79,7 +77,7 @@ def main():
     # === Initialize pose filter to smooth out noisy pose data ===
     pose_filter = SimpleMovingAverage(n=3)
 
-    navigator = Navigator(map_, robot, loc_service, planner, pose_filter, cfg)
+    navigator = Navigator(arena_map, robot, loc_service, planner, pose_filter, cfg)
 
     # TODO: Run initialization of AI services concurrently.
     ai_loop = prepare_ai_loop(cfg, rep_service, navigator)
@@ -138,7 +136,7 @@ def main():
                     pass
                 elif info == "Not An Expected Checkpoint":
                     main_log.info(
-                        f"Not yet at task checkpoint. status: {res.status}, data: {res.data}, curr pose: {pose}"
+                        f"Not yet at task checkpoint. status: {res.status}, data: {res.data}, curr pose: {last_pose}"
                     )
                     # If we reached this execution branch, it means the autonomy code thinks the
                     # robot has reached close enough to the checkpoint, but the Reporting server
@@ -217,31 +215,26 @@ if __name__ == "__main__":
         help="path to configuration YAML file.",
         default="config/autonomy_cfg.yml",
     )
-    # As a best practice, use a configuration file to configure ur software.
-
     args = parser.parse_args()
-
-    cfg_path = args.config
-    with open(cfg_path, "r") as f:
+    with open(args.config, "r") as f:
         cfg = yaml.safe_load(f)
 
-        IS_SIM = not cfg["use_real_localization"]
+    IS_SIM = not cfg["use_real_localization"]
+    if IS_SIM:
+        from tilsdk.mock_robomaster.robot import Robot
+    else:
+        from robomaster.robot import Robot
 
-        if IS_SIM:
-            from tilsdk.mock_robomaster.robot import Robot
-        else:
-            from robomaster.robot import Robot
+    VISUALIZE = cfg["VISUALIZE_FLAG"]
 
-        VISUALIZE = cfg["VISUALIZE_FLAG"]
+    SCORE_SERVER_IP = cfg["SCORE_SERVER_IP"]
+    SCORE_SERVER_PORT = cfg["SCORE_SERVER_PORT"]
+    LOCALIZATION_SERVER_IP = cfg["LOCALIZATION_SERVER_IP"]
+    LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
+    ROBOT_IP = cfg["ROBOT_IP"]
 
-        SCORE_SERVER_IP = cfg["SCORE_SERVER_IP"]
-        SCORE_SERVER_PORT = cfg["SCORE_SERVER_PORT"]
-        LOCALIZATION_SERVER_IP = cfg["LOCALIZATION_SERVER_IP"]
-        LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
-        ROBOT_IP = cfg["ROBOT_IP"]
-
-        REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
-        ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
-        ROBOT_RADIUS_M = cfg["ROBOT_RADIUS_M"]
+    REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
+    ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
+    ROBOT_RADIUS_M = cfg["ROBOT_RADIUS_M"]
 
     main()
