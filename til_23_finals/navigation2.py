@@ -143,7 +143,7 @@ class GridNavigator(Navigator):
             x, y = x, -y
         return x, y
 
-    def set_heading(self, cur: float, tgt: float, spd=30.0):
+    def set_heading(self, cur: float, tgt: float, spd=45.0):
         """Set the heading of the robot."""
         ang = get_ang_delta(cur, tgt)
         ang = -ang if self.FLIP_Z else ang
@@ -177,8 +177,8 @@ class GridNavigator(Navigator):
         no movement is performed.
         """
         skips = 1
-        xy_spd = 0.7
-        z_spd = 30
+        xy_spd = 1.0
+        z_spd = 60.0
 
         ini_pose = self.wait_for_valid_pose() if ini_pose is None else ini_pose
         nav_log.info(f"Start: {ini_pose}")

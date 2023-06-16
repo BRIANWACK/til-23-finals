@@ -7,6 +7,9 @@ __all__ = ["bind_robot"]
 
 log = logging.getLogger("Emulate")
 
+# Multiply speed of everything by this factor to speed up testing.
+SPEED = 3
+
 
 class Action:
     """Mock Action."""
@@ -49,6 +52,8 @@ class Gimbal:
 
     def move(self, pitch=0, yaw=0, pitch_speed=30, yaw_speed=30):
         """Mock gimbal move."""
+        pitch_speed *= SPEED
+        yaw_speed *= SPEED
         t = max(abs(pitch) / pitch_speed, abs(yaw) / yaw_speed)
         log.info(f"[gimbal.move] pitch: {pitch}, yaw: {yaw}, t: {t}")
         return Action(t)
@@ -61,7 +66,9 @@ class Gimbal:
 
 def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
     """Mock move."""
-    eps = 0.1
+    eps = 0.001
+    xy_speed *= SPEED
+    z_speed *= SPEED
     assert z == 0 or (x == 0 and y == 0), "Cannot move in xy and z at the same time."
     if z == 0:
         d = (x**2 + y**2) ** 0.5
