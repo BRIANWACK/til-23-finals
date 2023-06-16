@@ -271,128 +271,153 @@ class Navigator:
 
         return curr_wp, prev_loi, curr_loi, try_start_tasks
 
-    def getStartPose(self, pitchMag=30, yawMag=30):
-        """Get start pose."""
-        rate_limit = 0.25
-        z_cal_n = 4
-        min_reliable = 5
-        poseList = []
-
-        self.robot.gimbal.recenter().wait_for_completed()
-
-        def _cal(**kwargs):
-            gimbalAction = self.robot.gimbal.move(**kwargs)
-            while not gimbalAction.is_completed:
-                pose = self.get_raw_pose()
-                if pose is not None:
-                    poseList.append(pose)
-                time.sleep(rate_limit)
-            gimbalAction.wait_for_completed()
-
-        _cal(pitch=-pitchMag)
-        _cal(pitch=pitchMag)
-        _cal(yaw=-yawMag)
-        _cal(yaw=yawMag)
-        self.robot.gimbal.recenter().wait_for_completed()
-
-        # If length of poseList is 0, np.mean will error and crash.
-        if len(poseList) < min_reliable:
-            return None
-
-        avg_x = np.mean([p[0] for p in poseList])
-        avg_y = np.mean([p[1] for p in poseList])
-
-        z_sum = 0.0
-        for _ in range(z_cal_n):
+    def _gim_pose(self, rate_limit, **kwargs) -> List[RealPose]:
+        """Read pose while moving gimbal (kwargs passed to `gimbal.move`)."""
+        reads = []
+        action = self.robot.gimbal.move(**kwargs)
+        while not action.is_completed:
             pose = self.get_raw_pose()
             if pose is not None:
-                z_sum += pose[2]
+                reads.append(pose)
             time.sleep(rate_limit)
-        avg_z = z_sum / z_cal_n
+        action.wait_for_completed()
+        return reads
 
+    def measure_pose(
+        self,
+        yaw=20,
+        pitch=20,
+        yaw_spd=20,
+        pitch_spd=20,
+        heading_only=False,
+        rate_limit=0.25,
+        min_reliable=4,
+    ):
+        """Get accurate measurement of pose.
+
+        Default magnitude of 20 & speed of 20 implies 1s per action.
+        With rate limit of 0.25s, implies 3-4 measurements per action.
+        For 4 actions, implies 12-16 measurements of location, 6-8 measurements of heading.
+        """
+        nav_log.info("Measuring pose...")
+
+        pitches = []
+        yaws = []
+
+        self.robot.gimbal.recenter().wait_for_completed()
+        pitches += self._gim_pose(rate_limit, pitch=-pitch, pitch_speed=pitch_spd)
+        pitches += self._gim_pose(rate_limit, pitch=pitch, pitch_speed=pitch_spd)
+
+        if len(pitches) < min_reliable:
+            return None
+
+        if not heading_only:
+            self.robot.gimbal.recenter().wait_for_completed()
+            yaws += self._gim_pose(rate_limit, yaw=-yaw, yaw_speed=yaw_spd)
+            yaws += self._gim_pose(rate_limit, yaw=yaw, yaw_speed=yaw_spd)
+
+        self.robot.gimbal.recenter().wait_for_completed()
+
+        # `np.mean` crashes if list is empty.
+        combined = pitches + yaws
+        avg_x = np.mean([p.x for p in combined])
+        avg_y = np.mean([p.y for p in combined])
+        avg_z = np.mean([p.z for p in pitches])  # Yaw bad for z-heading.
         real_pose = RealPose(x=avg_x, y=avg_y, z=avg_z)
+        nav_log.info(f"Measured pose: {real_pose}")
         return real_pose
 
-    def check_pose_valid(self, pose: RealPose):
+    def is_pose_valid(self, pose: RealPose):
         """Check whether the pose is in bounds."""
         real_loc = RealLocation(x=pose.x, y=pose.y)
         grid_loc = self.map.real_to_grid(real_loc)
-        if self.map.in_bounds(grid_loc) and self.map.passable(grid_loc):
-            return True
-        return False
+        if not self.map.in_bounds(grid_loc):
+            nav_log.warning(f"Pose is out of bounds: {real_loc}, {grid_loc}")
+            return False
+        if not self.map.passable(grid_loc):
+            nav_log.warning(f"Pose is inside wall: {real_loc}, {grid_loc}")
+            return False
+        return True
 
-    def basic_navigation_loop(
-        self, last_valid_pose: RealPose, curr_loi, target_rotation
-    ):
+    def wait_for_valid_pose(self, ignore_invalid=False):
+        """Block until the pose received is valid."""
+        while True:
+            pose = self.measure_pose()
+            if pose is None:
+                nav_log.warning("Insufficient poses received from localization server.")
+                continue
+            if not self.is_pose_valid(pose):
+                nav_log.warning("Invalid pose received from localization server.")
+                if ignore_invalid:
+                    return pose
+                continue
+            return pose
+
+    def basic_navigation_loop(self, tgt_pose: RealPose):
+        """Navigate to target location, disregarding target heading.
+
+        Returns whether the measured initial pose is close to the target pose and
+        the measured initial pose. If the initial pose is close to the target pose,
+        no movement is performed.
+
+        Note, this doesn't (and shouldn't) handle rotation.
+
+        """
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
-        # TODO: Add visualization code
-
-        last_valid_pose = self.getStartPose()
+        ini_pose = self.wait_for_valid_pose()
+        nav_log.info(f"Start pose: {ini_pose}")
 
         if (
-            (last_valid_pose.x - curr_loi.x) ** 2
-            + (last_valid_pose.y - curr_loi.y) ** 2
+            (ini_pose.x - tgt_pose.x) ** 2 + (ini_pose.y - tgt_pose.y) ** 2
         ) ** 0.5 < self.REACHED_THRESHOLD_M:
-            return True, last_valid_pose
+            nav_log.info("Already at target location.")
+            return True, ini_pose
 
-        path = self.plan_path(last_valid_pose, curr_loi)
-        if path is None:  # Due to invalid pose
-            return False, last_valid_pose
+        path = self.plan_path(ini_pose, tgt_pose)
+        # Due to invalid pose?
+        if path is None:
+            nav_log.warning("Unable to plan path.")
+            return False, ini_pose
 
-        # self.gimbal_stationary_test(30, 90)
-        curr_estimated_pose = last_valid_pose
-        n = 1
-
+        skips = 1
         if self.VISUALIZE_FLAG:
             mapMat = self.map.grid.copy()
 
-            grid_location = self.map.real_to_grid(curr_estimated_pose)
-            self.drawPose(mapMat, grid_location, last_valid_pose[2])
+            cur_grid_loc = self.map.real_to_grid(ini_pose)
+            self.drawPose(mapMat, cur_grid_loc, ini_pose.z)
 
-            for wp in path[::n]:
+            for wp in path[::skips]:
                 grid_wp = self.map.real_to_grid(wp)
                 cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, 0, 1)
 
-            cv2.waitKey(1)
-            cv2.imshow("Map", imutils.resize(mapMat, width=600))
-
         # while path:
         #     wp = path[0]
-        #     path = path[n:]
-
+        #     path = path[skips:]
+        #
         #     if self.VISUALIZE_FLAG:
-
-        #         grid_location = self.map.real_to_grid(curr_estimated_pose)
         #         grid_wp = self.map.real_to_grid(wp)
-
-        #         self.drawPose(mapMat, grid_location, last_valid_pose[2])
-
+        #
         #         cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 5, 0, -1)
-
         #         cv2.waitKey(1)
-
         #         cv2.imshow("Map", imutils.resize(mapMat, width=600))
-
-        #     deltaX = self.BOARDSCALE/1*(wp.x - curr_estimated_pose.x)
-        #     deltaY = self.BOARDSCALE/1*(wp.y - curr_estimated_pose.y)
-        #     self.robot.chassis.move(x=deltaY, y=deltaX, xy_speed=0.8).wait_for_completed()
-        #     self.robot.chassis.move(x=deltaY, y=deltaX, xy_speed=0.8).wait_for_completed()
-        #     curr_estimated_pose = wp
+        #
+        #     deltaX = self.BOARDSCALE / 1 * (wp.x - ini_pose.x)
+        #     deltaY = self.BOARDSCALE / 1 * (wp.y - ini_pose.y)
+        #     self.robot.chassis.move(x=deltaY, y=deltaX).wait_for_completed()
+        #     # NOTE: This isn't our real pose, so no point drawing.
+        #     ini_pose = wp
 
         speed = 0.7
         scale = 1
-        deltaX = self.BOARDSCALE / scale * (curr_loi.x - curr_estimated_pose.x)
-        deltaY = self.BOARDSCALE / scale * (curr_loi.y - curr_estimated_pose.y)
+        # TODO: For dumb method, need to calc which edge of rectangle to travel.
+        deltaX = self.BOARDSCALE / scale * (tgt_pose.x - ini_pose.x)
+        deltaY = self.BOARDSCALE / scale * (tgt_pose.y - ini_pose.y)
         self.robot.chassis.move(x=deltaY, xy_speed=speed).wait_for_completed()
         self.robot.chassis.move(y=deltaX, xy_speed=speed).wait_for_completed()
 
-        # Check direction
-        # current heading vs target heading
-        # rel_ang = ang_difference(last_valid_pose.z, target_rotation)
-        # self.robot.chassis.move(z=rel_ang).wait_for_completed()
-        # self.robot.gimbal.move(yaw=rel_ang).wait_for_completed()
-        return False, last_valid_pose
+        nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
+        return False, ini_pose
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
         """Run manual control loop using WASD keys."""
