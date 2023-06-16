@@ -18,7 +18,7 @@ from tilsdk.utilities.filters import SimpleMovingAverage
 
 from .ai import prepare_ai_loop
 from .emulate import bind_robot
-from .navigation import Navigator
+from .navigation2 import GridNavigator
 from .planner import Planner
 
 logging.basicConfig(
@@ -96,7 +96,7 @@ def main():
     arena_map = arena_map.dilated(ROBOT_RADIUS_M)
     planner = Planner(arena_map, sdf_weight=0.5)
     pose_filter = SimpleMovingAverage(n=3)
-    navigator = Navigator(arena_map, robot, loc_service, planner, pose_filter, cfg)
+    navigator = GridNavigator(arena_map, robot, loc_service, planner, pose_filter, cfg)
     # TODO: Run initialization of AI services concurrently.
     ai_loop = prepare_ai_loop(cfg, rep_service)
 
@@ -115,7 +115,7 @@ def main():
     while True:
         # If measured pose is close to target pose, no movement is performed and
         # both True and the measured initial pose is returned.
-        check_ckpt, last_pose = navigator.basic_navigation_loop(tgt_pose, cur_pose)
+        check_ckpt, last_pose = navigator.navigation_loop(tgt_pose, cur_pose)
         cur_pose = None  # Now unknown.
 
         if check_ckpt:

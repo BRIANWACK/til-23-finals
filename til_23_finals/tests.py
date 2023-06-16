@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from tilsdk import RealLocation
 
 from .navigation import Navigator
+from .navigation2 import GridNavigator
 from .utils import viz_pose
 
 matplotlib.use("TkAgg")
@@ -104,15 +105,15 @@ def gimbal_stationary_test(nav: Navigator, pitchMag=30, yawMag=30):
     nav.robot.gimbal.move(yaw=yawMag).wait_for_completed()
 
 
-def gimbal_moving_test(nav: Navigator):
+def gimbal_moving_test(nav: GridNavigator):
     """Gimbal moving test."""
-    robotMoveAction = nav.robot.chassis.move(y=nav.BOARDSCALE)
+    robotMoveAction = nav.robot.chassis.move(y=nav.SCALE)
     gimbalMoveAction = nav.robot.gimbal.move(pitch=-60)
     gimbalMoveAction.wait_for_completed()
     robotMoveAction.wait_for_completed()
 
 
-def heading_test(nav: Navigator):
+def heading_test(nav: GridNavigator):
     """Test if turning to various headings is correct."""
     import random
 
@@ -125,12 +126,12 @@ def heading_test(nav: Navigator):
     print(f"FINAL HEADING: {cur_pose.z}")
 
 
-def basic_navigation_test(nav: Navigator):
+def basic_navigation_test(nav: GridNavigator):
     """Move by 1 board length up, down, left, right, and turn 90 deg clockwise and anti-clockwise."""
-    nav.robot.chassis.move(y=nav.BOARDSCALE).wait_for_completed()
-    nav.robot.chassis.move(y=-nav.BOARDSCALE).wait_for_completed()
-    nav.robot.chassis.move(x=-nav.BOARDSCALE).wait_for_completed()
-    nav.robot.chassis.move(x=nav.BOARDSCALE).wait_for_completed()
+    nav.robot.chassis.move(y=nav.SCALE).wait_for_completed()
+    nav.robot.chassis.move(y=-nav.SCALE).wait_for_completed()
+    nav.robot.chassis.move(x=-nav.SCALE).wait_for_completed()
+    nav.robot.chassis.move(x=nav.SCALE).wait_for_completed()
     nav.robot.chassis.move(z=90).wait_for_completed()
     nav.robot.chassis.move(z=-90).wait_for_completed()
 
