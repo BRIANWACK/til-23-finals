@@ -73,7 +73,8 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
     @torch.inference_mode()
     def embed_speaker(self, audio_waveform, sampling_rate, team_id=""):
         """Embed speaker."""
-        assert self.activated
+        if not self.activated:
+            log.critical("NeMoSpeakerIDService not activated!")
 
         cfg = {**DEFAULT_EXTRACTOR_CFG, **CUSTOM_EXTRACTOR_CFG.get(team_id, {})}
         raw, raw_sr = torch.tensor(audio_waveform, device=self.device), sampling_rate
@@ -119,7 +120,8 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         member_id : str
             The member ID of the speaker.
         """
-        assert self.activated
+        if not self.activated:
+            log.critical("NeMoSpeakerIDService not activated!")
 
         raw_embed, clean_embed = self.embed_speaker(
             audio_waveform, sampling_rate, team_id
@@ -149,7 +151,8 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
         scores : Dict[Tuple[str, str], float]
             Map of the team ID & member ID to the score.
         """
-        assert self.activated
+        if not self.activated:
+            log.critical("NeMoSpeakerIDService not activated!")
 
         # TODO: Save audio files for debugging.
         raw_embed, clean_embed = self.embed_speaker(

@@ -148,7 +148,8 @@ def viz_reid(img: np.ndarray, objects: List[ReIDObject]):
         elif obj.cls == ReIDClass.HOSTAGE:
             col = (0, 255, 0)
         else:
-            raise ValueError(f"Invalid reid class: {obj.cls}")
+            data_log.critical(f"Invalid reid class: {obj.cls}")
+            continue
         font = cv2.FONT_HERSHEY_SIMPLEX
 
         text_pt = (obj.x, max(0, obj.y - 10))

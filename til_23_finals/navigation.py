@@ -102,7 +102,9 @@ class Navigator:
 
     def get_filtered_pose(self):
         """Get filtered pose."""
-        raise "Deprecated."
+        nav_log.critical(
+            "`get_filtered_pose` is deprecated! Use `measure_pose` instead."
+        )
         pose = self.loc_service.get_pose()
         # no new pose data, continue to next iteration.
         if not pose:

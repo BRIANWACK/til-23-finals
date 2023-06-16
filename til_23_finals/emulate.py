@@ -28,7 +28,7 @@ class Gimbal:
     def __init__(self, robot):
         self.robot = robot
 
-    def move(self, pitch=0, yaw=0):
+    def move(self, pitch=0, yaw=0, pitch_speed=30, yaw_speed=30):
         """Mock gimbal move."""
         self.robot.chassis.drive_speed(x=0, y=0, z=yaw / 1)
         return Action(1)

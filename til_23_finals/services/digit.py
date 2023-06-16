@@ -100,7 +100,8 @@ class WhisperDigitDetectionService(AbstractDigitDetectionService):
         results : Tuple[int, ...]
             Tuple of digits sorted by confidence.
         """
-        assert self.activated
+        if not self.activated:
+            log.critical("WhisperDigitDetectionService not activated!")
 
         # TODO: Save audio files for debugging.
         wav = torch.tensor(audio_waveform, device=self.device)

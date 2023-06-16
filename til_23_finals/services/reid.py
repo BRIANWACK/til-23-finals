@@ -90,7 +90,8 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         results : List[ReIDObject]
             BoundingBox of targets within the scene. The coordinates are absolute.
         """
-        assert self.activated
+        if not self.activated:
+            log.critical("BasicObjectReIDService not activated!")
 
         # BGR to RGB
         scene_img = scene_img[:, :, ::-1]
@@ -220,7 +221,8 @@ class BasicObjectReIDService(AbstractObjectReIDService):
 
     def embed_image(self, img):
         """Embed image using ReID model."""
-        assert self.activated
+        if not self.activated:
+            log.critical("BasicObjectReIDService not activated!")
 
         # BGR to RGB
         img = img[..., ::-1]
