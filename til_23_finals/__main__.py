@@ -187,7 +187,7 @@ if __name__ == "__main__":
         from tilsdk.mock_robomaster.robot import Robot
 
         # Wait for simulator to start.
-        time.sleep(2)
+        time.sleep(1)
     else:
         from robomaster.robot import Robot
 

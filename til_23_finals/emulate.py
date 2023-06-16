@@ -11,12 +11,15 @@ log = logging.getLogger("Emulate")
 class Action:
     """Mock Action."""
 
-    def __init__(self, pause):
+    def __init__(self, pause, callback=None):
         self.pause = pause
         self.start = time.time()
+        self.callback = callback
 
     @property
     def _time_left(self):
+        if self.callback is not None:
+            self.callback()
         return self.pause + self.start - time.time()
 
     @property
@@ -61,7 +64,7 @@ def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
         t = abs(z) / z_speed
         log.info(f"[chassis.move] z: {z}, t: {t}")
         self.drive_speed(0, 0, z / t)
-    return Action(t)
+    return Action(t, lambda: self.drive_speed())
 
 
 def bind_robot(robot):
