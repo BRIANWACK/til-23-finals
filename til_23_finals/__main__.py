@@ -16,11 +16,11 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 import argparse
 import logging
-from typing import List
+import time
 
 import yaml
 from tilsdk import LocalizationService, ReportingService
-from tilsdk.localization import GridLocation, RealLocation, RealPose, SignedDistanceGrid
+from tilsdk.localization import RealPose
 from tilsdk.utilities.filters import SimpleMovingAverage
 
 from .ai import prepare_ai_loop
@@ -37,15 +37,24 @@ logging.basicConfig(
 main_log = logging.getLogger("Main")
 
 
+def start_run(rep: ReportingService):
+    """Start run and return first target pose."""
+    res = rep.start_run()
+    if res.status == 200:
+        data = eval(res.data)
+        assert isinstance(data, RealPose) or isinstance(
+            data, tuple
+        ), f"Bad response from service: {data}"
+        return RealPose(*data)
+    else:
+        main_log.error(f"Bad response from service.")
+        main_log.error(f"Response code: {res.status}")
+        raise NotImplementedError
+
+
 def main():
     """Run main loop."""
-    # === Initialize admin services ===
-    loc_service = LocalizationService(
-        host=LOCALIZATION_SERVER_IP, port=LOCALIZATION_SERVER_PORT
-    )
-    rep_service = ReportingService(host=SCORE_SERVER_IP, port=SCORE_SERVER_PORT)
-
-    # === Initialize robot ===
+    # ===== Initialize Robot =====
     robot = Robot()
     if IS_SIM:
         bind_robot(robot)
@@ -53,136 +62,78 @@ def main():
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="free")
 
-    # === Initialize planner ===
-    arena_map: SignedDistanceGrid = loc_service.get_map()
-    # Dilate obstacles virtually so that planner avoids bringing robot too close
-    # to real obstacles.
+    # ===== Initialize API Connections =====
+    loc_service = LocalizationService(
+        host=LOCALIZATION_SERVER_IP, port=LOCALIZATION_SERVER_PORT
+    )
+    rep_service = ReportingService(host=SCORE_SERVER_IP, port=SCORE_SERVER_PORT)
+
+    # ===== Initialize Planning & Navigation =====
+    arena_map = loc_service.get_map()
+    # Dilate obstacles virtually to avoid collision.
     arena_map = arena_map.dilated(ROBOT_RADIUS_M)
     planner = Planner(arena_map, sdf_weight=0.5)
+    pose_filter = SimpleMovingAverage(n=3)
+    navigator = Navigator(arena_map, robot, loc_service, planner, pose_filter, cfg)
+    # TODO: Run initialization of AI services concurrently.
+    ai_loop = prepare_ai_loop(cfg, rep_service)
 
     # === Loop State/Flags ===
-    # Current location of interest.
-    curr_loi: RealLocation = None
-    # List of way points to get from starting location to location of interest.
-    path: List[RealLocation] = []
-    # New RealLocation received from Reporting Server.
-    new_loi = None
-    prev_loi = new_loi
-    # A bearing between [-180, 180].
-    target_rotation = None
     # Whether to try and start AI tasks.
-    try_start_tasks = False
-    last_pose = None
-
-    # === Initialize pose filter to smooth out noisy pose data ===
-    pose_filter = SimpleMovingAverage(n=3)
-
-    navigator = Navigator(arena_map, robot, loc_service, planner, pose_filter, cfg)
-
-    # TODO: Run initialization of AI services concurrently.
-    ai_loop = prepare_ai_loop(cfg, rep_service, navigator)
-
-    # Tell reporting server we are ready.
-    res = rep_service.start_run()
-    if res.status == 200:
-        initial_target_pose = eval(res.data)
-        new_loi = RealLocation(x=initial_target_pose[0], y=initial_target_pose[1])
-        target_rotation = initial_target_pose[2]
-    else:
-        main_log.error("Bad response from challenge server.")
-        return
-
-    # NOTE: Use nav.getStartPose() instead.
-    # for _ in range(10):
-    #     main_log.info(f"Warming up pose filter to reduce initial noise.")
-    #     pose = loc_service.get_pose()  # TODO: remove `clues`.
-    #     time.sleep(0.25)
-
-    #     pose = pose_filter.update(pose)
+    should_start_ai = False
+    # Whether we should check if at checkpoint.
+    should_check_checkpoint = False
+    # Target location & rotation.
+    tgt_pose = start_run(rep_service)
+    main_log.info(f"Initial target pose: {tgt_pose}")
 
     main_log.info(f">>>>> Autobot rolling out! <<<<<")
-
-    # Main loop
     while True:
-        # navigator.gimbal_stationary_test(30, 90)
-        # pose = navigator.getStartPose()
-        # if pose is None:
-        #     continue
-        # real_location = RealLocation(x=pose[0], y=pose[1])
-        # grid_location = map_.real_to_grid(real_location)
-        # if map_.in_bounds(grid_location) and map_.passable(grid_location):
-        #     last_valid_pose = pose
-        # else:
-        #     mapGridUpperBounds = GridLocation(map_.width, map_.height)
-        #     # mapGridLowerBounds = GridLocation(0, 0)
+        # If measured pose is close to target pose, no movement is performed and
+        # both True and the measured initial pose is returned.
+        should_check_checkpoint, last_pose = navigator.basic_navigation_loop(tgt_pose)
 
-        #     print(grid_location, (map_.width, map_.height))
-        #     print(real_location, map_.grid_to_real(mapGridUpperBounds))
-        #     # print(f"{map_.grid_to_real(mapGridLowerBounds)} to {map_.grid_to_real(mapGridUpperBounds)}")
-        #     main_log.warning(f"Invalid pose received from localization server.")
-        #     continue
+        if should_check_checkpoint:
+            should_start_ai = False
+            should_check_checkpoint = False
 
-        # TEMP
-        # try_start_tasks = True
-        if try_start_tasks:
-            ## Check whether robot's pose is a checkpoint or not.
-            info = rep_service.check_pose(last_pose)
-            if type(info) == str:
-                if info == "End Goal Reached":
+            delta_z = tgt_pose.z - last_pose.z
+            robot.chassis.move(z=delta_z).wait_for_completed()
+            # TODO: Is this necessary if the robot is accurate? Do we just sleep
+            # till localization server catches up? What if the robot is wrong?
+            cur_pose = navigator.measure_pose(heading_only=True)
+            # cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
+
+            data = rep_service.check_pose(cur_pose)
+            if isinstance(data, str):
+                if data == "End Goal Reached":
                     rep_service.end_run()
                     print("=== YOU REACHED THE END ===")
                     break
-                elif info == "Task Checkpoint Reached":
+                elif data == "Task Checkpoint Reached":
+                    should_start_ai = True
+                elif data == "Not An Expected Checkpoint":
+                    # TODO: Micro-adjustment proccedure?
                     pass
-                elif info == "Not An Expected Checkpoint":
-                    main_log.info(
-                        f"Not yet at task checkpoint. status: {res.status}, data: {res.data}, curr pose: {last_pose}"
-                    )
-                    # If we reached this execution branch, it means the autonomy code thinks the
-                    # robot has reached close enough to the checkpoint, but the Reporting server
-                    # is expecting the robot to be even closer to the checkpoint.
-                    # TODO:  Robot should try to get closer to the checkpoint.
-                    try_start_tasks = False
-                    # new_loi = prev_loi  # Try to navigate to prev loi again. May need to get bot to do
-                    # a pre-programmed sequence (e.g. shifting around slowly until its
-                    # position is close enough to the checkpoint).
+                elif data == "You Still Have Checkpoints":
+                    # NOTE: IDK what this means but the reporting service might return this?
+                    pass
                 else:
-                    raise Exception("Unexpected string value.")
-            elif (
-                type(info) == RealPose
-            ):  # robot reached detour checkpoint and received new coordinates to go to.
-                main_log.info(
-                    f"Not goal, not task checkpt. Received a new target pose: {info}."
-                )
+                    main_log.warning(f"Unexpected response: {data}")
 
-                new_loi = RealLocation(x=info[0], y=info[1])
-                target_rotation = info[2]
-                main_log.info(f"Setting {new_loi} as new LOI.")
-                try_start_tasks = False
+            # robot reached detour checkpoint and received new coordinates to go to.
+            elif isinstance(data, RealPose) or isinstance(data, tuple):
+                tgt_pose = RealPose(*data)
+                main_log.info(f"New target pose: {tgt_pose}")
             else:
-                raise Exception(f"Unexpected return type: {type(info)}.")
+                main_log.warning(f"Unexpected response: {data}")
 
-            # TEMP
-            # try_start_tasks = True
-            # AI Loop.
-            if try_start_tasks:
-                main_log.info("===== Starting AI tasks =====")
-                target_pose = ai_loop(robot, last_pose)
-                new_loi = RealLocation(x=target_pose[0], y=target_pose[1])
-                target_rotation = target_pose[2]
-                main_log.info("===== AI tasks complete =====")
-                try_start_tasks = False
-
-        # Navigation loop.
-        # navigator.given_navigation_loop(last_valid_pose, new_loi, target_rotation)
-        at_pos, last_pose = navigator.basic_navigation_loop(
-            None, new_loi, target_rotation
-        )
-        # NOTE: last_pose is only the current pose if at_pos is true
-        if at_pos:
-            delta_z = last_pose.z - target_rotation
-            robot.gimbal.move(yaw=delta_z).wait_for_completed()
-            try_start_tasks = True
+        if should_start_ai:
+            should_start_ai = False
+            main_log.info("===== Starting AI tasks =====")
+            tgt_pose = ai_loop(robot, last_pose)
+            main_log.info(f"New target pose: {tgt_pose}")
+            main_log.info("===== AI tasks complete =====")
 
         ##################
         #   Test Cases   #
@@ -203,7 +154,7 @@ def main():
         # Test accuracy of DJI Robomaster SDK's move
         # navigator.basic_navigation_test()
 
-    robot.chassis.drive_speed(x=0.0, y=0.0, z=0.0, timeout=0.5)  # set stop for safety
+    robot.chassis.drive_speed()  # Brake.
     main_log.info("===== Mission Terminated =====")
 
 
@@ -216,6 +167,7 @@ if __name__ == "__main__":
         default="config/autonomy_cfg.yml",
     )
     args = parser.parse_args()
+
     with open(args.config, "r") as f:
         cfg = yaml.safe_load(f)
 
@@ -225,16 +177,10 @@ if __name__ == "__main__":
     else:
         from robomaster.robot import Robot
 
-    VISUALIZE = cfg["VISUALIZE_FLAG"]
-
     SCORE_SERVER_IP = cfg["SCORE_SERVER_IP"]
     SCORE_SERVER_PORT = cfg["SCORE_SERVER_PORT"]
     LOCALIZATION_SERVER_IP = cfg["LOCALIZATION_SERVER_IP"]
     LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
-    ROBOT_IP = cfg["ROBOT_IP"]
-
-    REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
-    ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
     ROBOT_RADIUS_M = cfg["ROBOT_RADIUS_M"]
 
     main()

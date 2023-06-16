@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import cv2
+from tilsdk.localization.types import RealPose
 from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
 
@@ -147,6 +148,6 @@ def prepare_ai_loop(cfg, rep: ReportingService):
         main_log.info("===== Digit Detection =====")
         target_pose = _digit(robot, pose, save_path)
         main_log.info(f"Received next target pose: {target_pose}")
-        return target_pose
+        return RealPose(*target_pose)
 
     return loop
