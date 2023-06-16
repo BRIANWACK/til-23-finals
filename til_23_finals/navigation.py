@@ -413,6 +413,9 @@ class Navigator:
         # TODO: For dumb method, need to calc which edge of rectangle to travel.
         deltaX = self.BOARDSCALE / scale * (tgt_pose.x - ini_pose.x)
         deltaY = self.BOARDSCALE / scale * (tgt_pose.y - ini_pose.y)
+        # Ensure robot is oriented correctly.
+        # TODO: What if we hit a wall while rotating?
+        self.robot.chassis.move(z=-ini_pose.z).wait_for_completed()
         self.robot.chassis.move(x=deltaY, xy_speed=speed).wait_for_completed()
         self.robot.chassis.move(y=deltaX, xy_speed=speed).wait_for_completed()
 
