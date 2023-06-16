@@ -86,18 +86,18 @@ class Navigator:
 
         self.BOARDSCALE = 0.955  # length of board in m
 
-    def plan_path(self, start: list, goal) -> List[RealLocation]:
+    def plan_path(self, start, goal):
         """Plan path."""
         try:
-            current_coord = RealLocation(x=start[0], y=start[1])
+            current_coord = RealLocation(start.x, start.y)
             path = self.planner.plan(current_coord, goal)
             main_log.info("Path planned.")
             return path
-
         except InvalidStartException as e:
-            ## Ensure only valid start positions are passed to the planner.
-            nav_log.warning(f"{e}")
-            # TODO: find and use another valid start point.
+            nav_log.error(f"Invalid start position: {start}", exc_info=e)
+            return None
+        except NoPathFoundException as e:
+            nav_log.error("No path found.", exc_info=e)
             return None
 
     def get_filtered_pose(self):
@@ -304,6 +304,8 @@ class Navigator:
         pitches = []
         yaws = []
 
+        # TODO: Would internal compass of `chassis.sub_position` be more accurate
+        # for heading/z-angle than 8 samples of localization API?
         self.robot.gimbal.recenter().wait_for_completed()
         pitches += self._gim_pose(rate_limit, pitch=-pitch, pitch_speed=pitch_spd)
         pitches += self._gim_pose(rate_limit, pitch=pitch, pitch_speed=pitch_spd)
@@ -323,7 +325,7 @@ class Navigator:
         avg_x = np.mean([p.x for p in combined])
         avg_y = np.mean([p.y for p in combined])
         avg_z = np.mean([p.z for p in pitches])  # Yaw bad for z-heading.
-        real_pose = RealPose(x=avg_x, y=avg_y, z=avg_z)
+        real_pose = RealPose(avg_x, avg_y, avg_z)
         nav_log.info(f"Measured pose: {real_pose}")
         return real_pose
 
