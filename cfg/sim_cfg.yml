@@ -24,7 +24,7 @@ robot_radius: 10
 start_pose:
   x: 0.5
   y: 0.5
-  z: 90
+  z: 270
 use_noisy_pose: true # set to true to simulate noisy robot poses.
 robot_phy_length: 0.32
 position_noise_stddev: 0.15

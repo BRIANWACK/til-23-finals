@@ -409,7 +409,9 @@ class Navigator:
             mapMat = self.map.grid.copy()
 
             cur_grid_loc = self.map.real_to_grid(ini_pose)
+            tgt_grid_loc = self.map.real_to_grid(tgt_pose)
             self.drawPose(mapMat, cur_grid_loc, ini_pose.z)
+            self.drawPose(mapMat, tgt_grid_loc, tgt_pose.z)
 
             for wp in path[::skips]:
                 grid_wp = self.map.real_to_grid(wp)
@@ -437,7 +439,8 @@ class Navigator:
 
         speed = 0.3
         scale = 1
-        aligned_heading = 90
+        # TODO: Align to nearest 90 degree heading instead, and flip axis accordingly.
+        aligned_heading = 0
         # TODO: For dumb method, need to calc which edge of rectangle to travel.
         deltaX = self.BOARDSCALE / scale * (tgt_pose.x - ini_pose.x)
         deltaY = self.BOARDSCALE / scale * (tgt_pose.y - ini_pose.y)
@@ -445,7 +448,8 @@ class Navigator:
         # TODO: What if we hit a wall while rotating?
         self.set_heading(ini_pose.z, aligned_heading).wait_for_completed()
         self.robot.chassis.move(x=deltaX, xy_speed=speed).wait_for_completed()
-        self.robot.chassis.move(y=deltaY, xy_speed=speed).wait_for_completed()
+        # NOTE: IRL and Simulator is flipped on y-axis!
+        self.robot.chassis.move(y=-deltaY, xy_speed=speed).wait_for_completed()
 
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
