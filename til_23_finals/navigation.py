@@ -316,12 +316,6 @@ class Navigator:
 
     def transform_axes(self, x: float, y: float, heading: Heading):
         """Transform movement values to account for mismatch with map axes and heading."""
-        if self.SWAP_XY:
-            x, y = y, x
-        if self.FLIP_X:
-            x, y = -x, y
-        if self.FLIP_Y:
-            x, y = x, -y
         if heading == Heading.POS_X:
             x, y = x, y
         elif heading == Heading.POS_Y:
@@ -330,6 +324,12 @@ class Navigator:
             x, y = -x, -y
         elif heading == Heading.NEG_Y:
             x, y = -y, x
+        if self.SWAP_XY:
+            x, y = y, x
+        if self.FLIP_X:
+            x, y = -x, y
+        if self.FLIP_Y:
+            x, y = x, -y
         return x, y
 
     def wait_for_valid_pose(self, ignore_invalid=False):
