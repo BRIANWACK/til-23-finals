@@ -2,19 +2,17 @@
 
 import logging
 from pathlib import Path
-from time import sleep
 
 import cv2
 from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
 
-from til_23_finals.navigation import Navigator
 from til_23_finals.utils import enable_camera, load_audio_from_dir, viz_reid
 
 main_log = logging.getLogger("AI")
 
 
-def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
+def prepare_ai_loop(cfg, rep: ReportingService):
     """Return function to run AI phase of main loop."""
     NLP_MODEL_DIR = cfg["NLP_MODEL_DIR"]
     CV_MODEL_DIR = cfg["CV_MODEL_DIR"]
@@ -78,15 +76,16 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
     _register_speaker_id()
 
     @reid_service
-    def _reid(robot: Robot, pose, _):
+    def _reid(robot: Robot, pose, save_path):
         with enable_camera(robot, PHOTO_DIR) as take_photo:
             img = take_photo()
 
-        # TODO: Use bboxes to adjust camera.
-        # TODO: Zoom onto each target to scan.
-        # TODO: Use multiple `scene_img` for multiple crops & embeds. Embeds can then
+        # TODO: Robust camera logic:
+        # - Use bboxes to adjust camera.
+        # - Zoom onto each target to scan.
+        # - Temporal image denoise & upscale (can only find 1 library for this and its unusable).
+        # - Use multiple `scene_img` for multiple crops & embeds. Embeds can then
         # be averaged for robustness.
-        # TODO: Temporal image denoise & upscale (can only find 1 library for this and its unusable).
         bboxes = reid_service.targets_from_image(img)
 
         dets, lbl, _ = reid_service.identity_target(bboxes, sus_embed, hostage_embed)
@@ -135,14 +134,10 @@ def prepare_ai_loop(cfg, rep: ReportingService, nav: Navigator):
         return rep.report_digit(pose, tuple(password))
 
     def loop(robot: Robot, pose):
-        """Run AI phase of main loop."""
-        robot.chassis.drive_speed()
-        # TODO: Test if necessary.
-        # sleep(1)
+        """Run AI phase of main loop.
 
-        # NOTE: This pose only used by judges to verify robot is near checkpoint.
-        # As such, it doesn't have to be correct/constantly measured.
-
+        Note, the robot is assumed to be stationary and in the correct pose!
+        """
         main_log.info("===== Object ReID =====")
         save_path = _reid(robot, pose, None)
         main_log.info(f"Saved next task files: {save_path}")
