@@ -1,15 +1,8 @@
-"""SAMPLE AUTONOMY CODE FOR TIL2023.
+"""sAmPlE autoNOMY coDE foR TIL2023."""
 
-This is not the most optimal solution. However, it is a fully-running codebase
-with major integrations done for you already so that you can concentrate more on
-improving your algorithms and models and less on integration work. Participants
-are free to modify any thing in the "stubs" folder. You do not need to modify the
-"src" folder. Have fun!
-"""
-
-# Setup some cache directories before everything else.
 import os
 
+# Setup some cache directories before everything else.
 os.environ["HF_HOME"] = "models/"
 os.environ["TORCH_HOME"] = "models/"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -109,9 +102,11 @@ def main():
 
     # === Loop State/Flags ===
     # Whether to try and start AI tasks.
-    should_start_ai = False
+    start_ai = False
     # Whether we should check if at checkpoint.
-    should_check_checkpoint = False
+    check_ckpt = False
+    # Current pose (only used after AI task since stationary).
+    cur_pose = None
     # Target location & rotation.
     tgt_pose = start_run(rep_service)
     main_log.info(f"Initial target: {tgt_pose}")
@@ -120,17 +115,17 @@ def main():
     while True:
         # If measured pose is close to target pose, no movement is performed and
         # both True and the measured initial pose is returned.
-        should_check_checkpoint, last_pose = navigator.basic_navigation_loop(tgt_pose)
+        check_ckpt, last_pose = navigator.basic_navigation_loop(tgt_pose, cur_pose)
+        cur_pose = None  # Now unknown.
 
-        if should_check_checkpoint:
-            should_check_checkpoint = False
-
+        if check_ckpt:
+            check_ckpt = False
+            # TODO: What if we hit wall while rotating?
             navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
             # TODO: Is this necessary if the robot is accurate? Do we just sleep
             # till localization server catches up? What if the robot is wrong?
             cur_pose = navigator.measure_pose(heading_only=True)
-            # cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
-
+            cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
             status = check_checkpoint(rep_service, cur_pose)
             if isinstance(status, RealPose):
                 tgt_pose = status
@@ -138,10 +133,10 @@ def main():
             elif status is None:
                 break
             else:
-                should_start_ai = status
+                start_ai = status
 
-        if should_start_ai:
-            should_start_ai = False
+        if start_ai:
+            start_ai = False
             tgt_pose = ai_loop(robot, last_pose)
             main_log.info(f"New target: {tgt_pose}")
 

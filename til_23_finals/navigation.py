@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import List
+from typing import List, Optional
 
 import cv2
 import imutils
@@ -401,19 +401,18 @@ class Navigator:
                 continue
             return pose
 
-    def basic_navigation_loop(self, tgt_pose: RealPose):
+    def basic_navigation_loop(
+        self, tgt_pose: RealPose, ini_pose: Optional[RealPose] = None
+    ):
         """Navigate to target location, disregarding target heading.
 
         Returns whether the measured initial pose is close to the target pose and
         the measured initial pose. If the initial pose is close to the target pose,
         no movement is performed.
-
-        Note, this doesn't (and shouldn't) handle rotation.
-
         """
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
-        ini_pose = self.wait_for_valid_pose()
+        ini_pose = self.wait_for_valid_pose() if ini_pose is None else ini_pose
         nav_log.info(f"Start: {ini_pose}")
         nav_log.info(f"Target: {tgt_pose}")
 
