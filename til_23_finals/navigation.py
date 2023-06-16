@@ -301,7 +301,7 @@ class Navigator:
         With rate limit of 0.25s, implies 3-4 measurements per action.
         For 4 actions, implies 12-16 measurements of location, 6-8 measurements of heading.
         """
-        nav_log.info("Measuring pose...")
+        nav_log.debug("Measuring pose...")
 
         pitches = []
         yaws = []
@@ -328,7 +328,7 @@ class Navigator:
         avg_y = np.mean([p.y for p in combined])
         avg_z = np.mean([p.z for p in pitches])  # Yaw bad for z-heading.
         real_pose = RealPose(avg_x, avg_y, avg_z)
-        nav_log.info(f"Measured pose: {real_pose}")
+        nav_log.debug(f"Measured: {real_pose}")
         return real_pose
 
     def is_pose_valid(self, pose: RealPose):
@@ -370,7 +370,8 @@ class Navigator:
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
         ini_pose = self.wait_for_valid_pose()
-        nav_log.info(f"Start pose: {ini_pose}")
+        nav_log.info(f"Start: {ini_pose}")
+        nav_log.info(f"Target: {tgt_pose}")
 
         if (
             (ini_pose.x - tgt_pose.x) ** 2 + (ini_pose.y - tgt_pose.y) ** 2
@@ -378,7 +379,8 @@ class Navigator:
             nav_log.info("Already at target location.")
             return True, ini_pose
 
-        path = self.plan_path(ini_pose, tgt_pose)
+        # path = self.plan_path(ini_pose, tgt_pose)
+        path: list = []
         # Due to invalid pose?
         if path is None:
             nav_log.warning("Unable to plan path.")
@@ -395,6 +397,9 @@ class Navigator:
                 grid_wp = self.map.real_to_grid(wp)
                 cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, 0, 1)
 
+            cv2.imshow("Map", imutils.resize(mapMat, width=600))
+            cv2.waitKey(1)
+
         # while path:
         #     wp = path[0]
         #     path = path[skips:]
@@ -403,8 +408,8 @@ class Navigator:
         #         grid_wp = self.map.real_to_grid(wp)
         #
         #         cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 5, 0, -1)
-        #         cv2.waitKey(1)
         #         cv2.imshow("Map", imutils.resize(mapMat, width=600))
+        #         cv2.waitKey(1)
         #
         #     deltaX = self.BOARDSCALE / 1 * (wp.x - ini_pose.x)
         #     deltaY = self.BOARDSCALE / 1 * (wp.y - ini_pose.y)

@@ -114,7 +114,7 @@ def main():
     should_check_checkpoint = False
     # Target location & rotation.
     tgt_pose = start_run(rep_service)
-    main_log.info(f"Initial target pose: {tgt_pose}")
+    main_log.info(f"Initial target: {tgt_pose}")
 
     main_log.info(f">>>>> Autobot rolling out! <<<<<")
     while True:
@@ -135,7 +135,7 @@ def main():
             status = check_checkpoint(rep_service, cur_pose)
             if isinstance(status, RealPose):
                 tgt_pose = status
-                main_log.info(f"New target pose: {tgt_pose}")
+                main_log.info(f"New target: {tgt_pose}")
             elif status is None:
                 break
             else:
@@ -144,7 +144,7 @@ def main():
         if should_start_ai:
             should_start_ai = False
             tgt_pose = ai_loop(robot, last_pose)
-            main_log.info(f"New target pose: {tgt_pose}")
+            main_log.info(f"New target: {tgt_pose}")
 
         ##################
         #   Test Cases   #

@@ -148,7 +148,7 @@ def prepare_ai_loop(cfg, rep: ReportingService):
         main_log.info(f"Saved next task files: {save_path}")
         main_log.info("===== Digit Detection =====")
         target_pose = _digit(robot, pose, save_path)
-        main_log.info(f"Received next target pose: {target_pose}")
+        main_log.info(f"Received next target: {target_pose}")
         main_log.info("===== AI Tasks Complete =====")
         return RealPose(*target_pose)
 
