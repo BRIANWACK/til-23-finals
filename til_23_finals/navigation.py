@@ -31,12 +31,12 @@ nav_log = logging.getLogger("Nav")
 ctrl_log = logging.getLogger("Ctrl")
 
 
-def ang_difference(ang1, ang2):
+def get_rel_ang_diff(ang1: float, ang2: float):
     """Get angular difference in degrees of two angles in degrees.
 
     Returns a value in the range [-180, 180].
     """
-    ang_diff = -(ang1 - ang2)  # body frame
+    ang_diff = ang2 - ang1  # body frame
 
     # ensure ang_diff is in [-180, 180]
     if ang_diff < -180:
@@ -47,10 +47,17 @@ def ang_difference(ang1, ang2):
     return ang_diff
 
 
+def rel_ang_to_abs(ang: float):
+    """Convert relative angle to absolute angle in degrees."""
+    while ang < 0:
+        ang += 360
+    return ang % 360
+
+
 def ang_diff_to_wp(pose: RealPose, curr_wp):
     """Get angular difference in degrees of current pose to current waypoint."""
     ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
-    ang_diff = ang_difference(ang_to_wp, pose[2])
+    ang_diff = get_rel_ang_diff(ang_to_wp, pose[2])
     return ang_diff
 
 
@@ -111,13 +118,14 @@ class Navigator:
             return None
         return self.pose_filter.update(pose)
 
-    def get_raw_pose(self):
+    def get_raw_pose(self, correct_heading=True):
         """Get raw pose."""
         pose = self.loc_service.get_pose()
         # NOTE: loc_service returns (None, None) lol.
         if not isinstance(pose, RealPose):
             return None
-        return pose
+        z = rel_ang_to_abs(pose.z) if correct_heading else pose.z
+        return RealPose(pose.x, pose.y, z)
 
     def drawPose(self, mapMat, grid_location, heading):
         """Draw pose on map."""
@@ -150,7 +158,7 @@ class Navigator:
         rel_ang = 180
         while abs(rel_ang) > 20:
             pose = self.get_filtered_pose()
-            rel_ang = ang_difference(
+            rel_ang = get_rel_ang_diff(
                 pose[2], target_rotation
             )  # current heading vs target heading
 
@@ -203,7 +211,7 @@ class Navigator:
                 self.controller.reset()
 
                 # ROTATE ROBOT TO TARGET ORIENTATION.
-                rel_ang = ang_difference(
+                rel_ang = get_rel_ang_diff(
                     last_valid_pose[2], target_rotation
                 )  # current heading vs target heading
                 self.turnRobot(rel_ang)
@@ -278,12 +286,21 @@ class Navigator:
         reads = []
         action = self.robot.gimbal.move(**kwargs)
         while not action.is_completed:
-            pose = self.get_raw_pose()
+            pose = self.get_raw_pose(correct_heading=False)
             if pose is not None:
                 reads.append(pose)
             time.sleep(rate_limit)
         action.wait_for_completed()
         return reads
+
+    def set_heading(
+        self, cur_heading: float, target_heading: float, spd=30.0, flipped=True
+    ):
+        """Set the heading of the robot."""
+        rel_ang = get_rel_ang_diff(cur_heading, target_heading)
+        if flipped:
+            rel_ang *= -1
+        return self.robot.chassis.move(z=rel_ang, z_speed=spd)
 
     def measure_pose(
         self,
@@ -327,6 +344,7 @@ class Navigator:
         avg_x = np.mean([p.x for p in combined])
         avg_y = np.mean([p.y for p in combined])
         avg_z = np.mean([p.z for p in pitches])  # Yaw bad for z-heading.
+        avg_z = rel_ang_to_abs(avg_z)
         real_pose = RealPose(avg_x, avg_y, avg_z)
         nav_log.debug(f"Measured: {real_pose}")
         return real_pose
@@ -419,14 +437,15 @@ class Navigator:
 
         speed = 0.3
         scale = 1
+        aligned_heading = 90
         # TODO: For dumb method, need to calc which edge of rectangle to travel.
         deltaX = self.BOARDSCALE / scale * (tgt_pose.x - ini_pose.x)
         deltaY = self.BOARDSCALE / scale * (tgt_pose.y - ini_pose.y)
         # Ensure robot is oriented correctly.
         # TODO: What if we hit a wall while rotating?
-        self.robot.chassis.move(z=ini_pose.z).wait_for_completed()
-        self.robot.chassis.move(x=deltaY, xy_speed=speed).wait_for_completed()
-        self.robot.chassis.move(y=deltaX, xy_speed=speed).wait_for_completed()
+        self.set_heading(ini_pose.z, aligned_heading).wait_for_completed()
+        self.robot.chassis.move(x=deltaX, xy_speed=speed).wait_for_completed()
+        self.robot.chassis.move(y=deltaY, xy_speed=speed).wait_for_completed()
 
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
@@ -516,6 +535,18 @@ class Navigator:
         gimbalMoveAction = self.robot.gimbal.move(pitch=-60)
         gimbalMoveAction.wait_for_completed()
         robotMoveAction.wait_for_completed()
+
+    def heading_test(self):
+        """Test if turning to various headings is correct."""
+        import random
+
+        cur_pose = self.measure_pose(heading_only=True)
+        print(f"INITIAL HEADING: {cur_pose.z}")
+        tgt = random.randint(0, 359)
+        print(f"TARGET HEADING: {tgt}")
+        self.set_heading(cur_pose.z, tgt, spd=30.0).wait_for_completed()
+        cur_pose = self.measure_pose(heading_only=True)
+        print(f"FINAL HEADING: {cur_pose.z}")
 
     def gimbal_moving_test2(self):
         pass

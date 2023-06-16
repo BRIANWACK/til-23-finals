@@ -125,8 +125,7 @@ def main():
         if should_check_checkpoint:
             should_check_checkpoint = False
 
-            delta_z = tgt_pose.z - last_pose.z
-            robot.chassis.move(z=delta_z).wait_for_completed()
+            navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
             # TODO: Is this necessary if the robot is accurate? Do we just sleep
             # till localization server catches up? What if the robot is wrong?
             cur_pose = navigator.measure_pose(heading_only=True)
@@ -149,6 +148,9 @@ def main():
         ##################
         #   Test Cases   #
         ##################
+
+        # Test heading.
+        # navigator.heading_test()
 
         # Test basic movement (drive_speed) + visualisation
         # navigator.WASD_loop()
