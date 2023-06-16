@@ -1,11 +1,11 @@
 """Utility types."""
 
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import NamedTuple
 
 import numpy as np
 
-__all__ = ["ReIDObject", "ReIDClass", "SpeakerID"]
+__all__ = ["ReIDObject", "ReIDClass", "Heading", "SpeakerID"]
 
 
 class ReIDClass(Enum):
@@ -14,6 +14,15 @@ class ReIDClass(Enum):
     SUSPECT = "suspect"
     HOSTAGE = "hostage"
     CIVILIAN = "none"
+
+
+class Heading(IntEnum):
+    """0 when +x -> +x, 90 when +x -> +y, 180 when +x -> -x, and 360 when +x -> -y."""
+
+    POS_X = 0
+    POS_Y = 90
+    NEG_X = 180
+    NEG_Y = 270
 
 
 class ReIDObject(NamedTuple):

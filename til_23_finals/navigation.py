@@ -20,6 +20,7 @@ from tilsdk.utilities import PIDController
 
 # Exceptions for path planning.
 from .planner import InvalidStartException, NoPathFoundException, Planner
+from .types import Heading
 
 matplotlib.use("TkAgg")
 
@@ -48,10 +49,16 @@ def get_rel_ang_diff(ang1: float, ang2: float):
 
 
 def rel_ang_to_abs(ang: float):
-    """Convert relative angle to absolute angle in degrees."""
+    """Convert relative angle to absolute headings in degrees."""
     while ang < 0:
         ang += 360
     return ang % 360
+
+
+def nearest_cardinal(heading: float) -> Heading:
+    """Get nearest cardinal heading."""
+    deltas = {h: abs(get_rel_ang_diff(heading, h)) for h in Heading}
+    return min(deltas, key=deltas.get)  # type: ignore
 
 
 def ang_diff_to_wp(pose: RealPose, curr_wp):
@@ -90,8 +97,12 @@ class Navigator:
         self.VISUALIZE_FLAG = cfg["VISUALIZE_FLAG"]
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
-
-        self.BOARDSCALE = 0.955  # length of board in m
+        self.FLIP_X = cfg["FLIP_X"]
+        self.FLIP_Y = cfg["FLIP_Y"]
+        self.FLIP_Z = cfg["FLIP_Z"]
+        self.SWAP_XY = cfg["SWAP_XY"]
+        self.BOARDSCALE = cfg["BOARDSCALE"]
+        self.EXTRASCALE = cfg["EXTRASCALE"]
 
     def plan_path(self, start, goal):
         """Plan path."""
@@ -293,14 +304,11 @@ class Navigator:
         action.wait_for_completed()
         return reads
 
-    def set_heading(
-        self, cur_heading: float, target_heading: float, spd=30.0, flipped=True
-    ):
+    def set_heading(self, cur: float, tgt: float, spd=30.0):
         """Set the heading of the robot."""
-        rel_ang = get_rel_ang_diff(cur_heading, target_heading)
-        if flipped:
-            rel_ang *= -1
-        return self.robot.chassis.move(z=rel_ang, z_speed=spd)
+        ang = get_rel_ang_diff(cur, tgt)
+        ang = -ang if self.FLIP_Z else ang
+        return self.robot.chassis.move(z=ang, z_speed=spd)
 
     def measure_pose(
         self,
@@ -360,6 +368,24 @@ class Navigator:
             nav_log.warning(f"Pose is inside wall: {real_loc}, {grid_loc}")
             return False
         return True
+
+    def transform_axes(self, x: float, y: float, heading: Heading):
+        """Transform movement values to account for mismatch with map axes and heading."""
+        if self.SWAP_XY:
+            x, y = y, x
+        if self.FLIP_X:
+            x, y = -x, y
+        if self.FLIP_Y:
+            x, y = x, -y
+        if heading == Heading.POS_X:
+            x, y = x, y
+        elif heading == Heading.POS_Y:
+            x, y = y, -x
+        elif heading == Heading.NEG_X:
+            x, y = -x, -y
+        elif heading == Heading.NEG_Y:
+            x, y = -y, x
+        return x, y
 
     def wait_for_valid_pose(self, ignore_invalid=False):
         """Block until the pose received is valid."""
@@ -437,19 +463,17 @@ class Navigator:
         #     # NOTE: This isn't our real pose, so no point drawing.
         #     ini_pose = wp
 
-        speed = 0.3
-        scale = 1
-        # TODO: Align to nearest 90 degree heading instead, and flip axis accordingly.
-        aligned_heading = 0
-        # TODO: For dumb method, need to calc which edge of rectangle to travel.
-        deltaX = self.BOARDSCALE / scale * (tgt_pose.x - ini_pose.x)
-        deltaY = self.BOARDSCALE / scale * (tgt_pose.y - ini_pose.y)
-        # Ensure robot is oriented correctly.
+        xy_spd = 0.7
+        z_spd = 30
+        align = nearest_cardinal(ini_pose.z)
+        delta_x = self.BOARDSCALE / self.EXTRASCALE * (tgt_pose.x - ini_pose.x)
+        delta_y = self.BOARDSCALE / self.EXTRASCALE * (tgt_pose.y - ini_pose.y)
+        mov_x, mov_y = self.transform_axes(delta_x, delta_y, align)
+
         # TODO: What if we hit a wall while rotating?
-        self.set_heading(ini_pose.z, aligned_heading).wait_for_completed()
-        self.robot.chassis.move(x=deltaX, xy_speed=speed).wait_for_completed()
-        # NOTE: IRL and Simulator is flipped on y-axis!
-        self.robot.chassis.move(y=-deltaY, xy_speed=speed).wait_for_completed()
+        self.set_heading(ini_pose.z, align, spd=z_spd).wait_for_completed()
+        self.robot.chassis.move(x=mov_x, xy_speed=xy_spd).wait_for_completed()
+        self.robot.chassis.move(y=mov_y, xy_speed=xy_spd).wait_for_completed()
 
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
