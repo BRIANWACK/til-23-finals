@@ -9,19 +9,24 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import librosa
 import numpy as np
+from tilsdk.localization import GridLocation, RealPose
 
-from til_23_finals.types import ReIDClass, ReIDObject
+from til_23_finals.types import Heading, ReIDClass, ReIDObject
 
 __all__ = [
     "load_audio_from_dir",
     "enable_camera",
     "cos_sim",
-    "thres_strategy_A",
     "thres_strategy_naive",
-    "thres_strategy_softmax",
     "viz_reid",
+    "viz_pose",
+    "get_ang_delta",
+    "ang_to_heading",
+    "nearest_cardinal",
+    "ang_to_waypoint",
 ]
 
+viz_log = logging.getLogger("Viz")
 data_log = logging.getLogger("Data")
 
 
@@ -80,60 +85,12 @@ def cos_sim(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 
-def thres_strategy_A(scores: list, accept_thres=0.3, vote_thres=0.0, sd_thres=4.4):
-    """Strategy based on standard deviation.
-
-    If any in `scores` is greater than `accept_thres`, return the index of the
-    max score. If any in `scores` is greater than `vote_thres`, return the index
-    of the max score if it is greater than `sd` standard deviations away from
-    the mean of `scores` (excluding the max score). Otherwise, return -1.
-
-    This strategy is not found in any literature and is the author's own.
-
-    Parameters
-    ----------
-    scores : List[float]
-        List of scores.
-    accept_thres : float, optional
-        Threshold for accepting a prediction, by default 0.7
-    vote_thres : float, optional
-        Threshold for voting, by default 0.1
-    sd_thres : float, optional
-        Number of standard deviations away from the mean, by default 5.0
-
-    Returns
-    -------
-    int
-        The index of the max score if it meets the criteria, otherwise -1.
-    """
-    if np.max(scores) > accept_thres:
-        return np.argmax(scores)
-    elif np.max(scores) > vote_thres:
-        scores = np.array(scores).clip(0.0)  # type: ignore
-        mean = np.mean(scores[scores < np.max(scores)])
-        std = np.std(scores[scores < np.max(scores)])
-        if np.max(scores) - mean > sd_thres * std:
-            return np.argmax(scores)
-    return -1
-
-
 def thres_strategy_naive(scores: list, thres=0.3):
     """Naive thresholding strategy."""
     if len(scores) < 1:
         return -1
     if np.max(scores) > thres:
         return np.argmax(scores)
-    return -1
-
-
-def thres_strategy_softmax(scores: list, temp=0.8, ratio=1.4):
-    """Threshold using softmax."""
-    x = np.array(scores) / temp  # type: ignore
-    ex = np.exp(x - np.max(x))
-    ex /= ex.sum() + 1e-12
-    # TODO: Figure out proper solution to sensitivity.
-    if np.max(ex) > ratio / (len(ex) + 1):
-        return np.argmax(ex)
     return -1
 
 
@@ -148,14 +105,65 @@ def viz_reid(img: np.ndarray, objects: List[ReIDObject]):
         elif obj.cls == ReIDClass.HOSTAGE:
             col = (0, 255, 0)
         else:
-            data_log.critical(f"Invalid reid class: {obj.cls}")
+            viz_log.critical(f"Invalid reid class: {obj.cls}")
             continue
         font = cv2.FONT_HERSHEY_SIMPLEX
-
+        lbl = f"{obj.cls.value} {obj.sim:.3f}"
         text_pt = (obj.x, max(0, obj.y - 10))
-        img = cv2.rectangle(img, (obj.x, obj.y, obj.w, obj.h), col, 3)
-        img = cv2.putText(
-            img, f"{obj.cls.value} {obj.sim:.3f}", text_pt, font, 0.5, col, 2
-        )
-
+        try:
+            img = cv2.rectangle(img, (obj.x, obj.y, obj.w, obj.h), col, 3)
+            img = cv2.putText(img, lbl, text_pt, font, 0.5, col, 2)
+        except Exception as e:
+            viz_log.error(f"Error in `viz_reid`.", exc_info=e)
     return img
+
+
+def viz_pose(grid: np.ndarray, grid_pt: GridLocation, heading: float, color=0):
+    """Visualize the pose on map grid."""
+    grid = grid.copy()
+    radius = 10
+    tip_len = 0.5
+    thickness = 2
+    x, y = grid_pt.x, grid_pt.y
+    try:
+        cos = np.cos(np.deg2rad(heading))
+        sin = np.sin(np.deg2rad(heading))
+        base = (round(x - radius * cos), round(y - radius * sin))
+        tip = (round(x + radius * cos), round(y + radius * sin))
+        cv2.arrowedLine(grid, base, tip, color, thickness, tipLength=tip_len)
+    except Exception as e:
+        viz_log.error(f"Error in `viz_pose`.", exc_info=e)
+    return grid
+
+
+def get_ang_delta(cur: float, tgt: float):
+    """Get angular difference in degrees of two angles in degrees.
+
+    Returns a value in the range [-180, 180].
+    """
+    delta = tgt - cur
+    if delta < -180:
+        delta += 360
+    if delta > 180:
+        delta -= 360
+    return delta
+
+
+def ang_to_heading(ang: float):
+    """Convert relative angle to absolute headings in degrees."""
+    while ang < 0:
+        ang += 360
+    return ang % 360
+
+
+def nearest_cardinal(heading: float) -> Heading:
+    """Get nearest cardinal heading."""
+    deltas = {h: abs(get_ang_delta(heading, h)) for h in Heading}
+    return min(deltas, key=deltas.get)  # type: ignore
+
+
+def ang_to_waypoint(pose: RealPose, waypoint):
+    """Get angular difference in degrees of current pose to current waypoint."""
+    ang_to_wp = np.degrees(np.arctan2(waypoint.y - pose.y, waypoint.x - pose.x))
+    delta = get_ang_delta(ang_to_wp, pose.z)
+    return delta

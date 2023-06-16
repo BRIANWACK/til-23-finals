@@ -21,6 +21,13 @@ from tilsdk.utilities import PIDController
 # Exceptions for path planning.
 from .planner import InvalidStartException, NoPathFoundException, Planner
 from .types import Heading
+from .utils import (
+    ang_to_heading,
+    ang_to_waypoint,
+    get_ang_delta,
+    nearest_cardinal,
+    viz_pose,
+)
 
 matplotlib.use("TkAgg")
 
@@ -30,42 +37,6 @@ DEFAULT_PID = dict(Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0))
 main_log = logging.getLogger("Main")
 nav_log = logging.getLogger("Nav")
 ctrl_log = logging.getLogger("Ctrl")
-
-
-def get_rel_ang_diff(ang1: float, ang2: float):
-    """Get angular difference in degrees of two angles in degrees.
-
-    Returns a value in the range [-180, 180].
-    """
-    ang_diff = ang2 - ang1  # body frame
-
-    # ensure ang_diff is in [-180, 180]
-    if ang_diff < -180:
-        ang_diff += 360
-
-    if ang_diff > 180:
-        ang_diff -= 360
-    return ang_diff
-
-
-def rel_ang_to_abs(ang: float):
-    """Convert relative angle to absolute headings in degrees."""
-    while ang < 0:
-        ang += 360
-    return ang % 360
-
-
-def nearest_cardinal(heading: float) -> Heading:
-    """Get nearest cardinal heading."""
-    deltas = {h: abs(get_rel_ang_diff(heading, h)) for h in Heading}
-    return min(deltas, key=deltas.get)  # type: ignore
-
-
-def ang_diff_to_wp(pose: RealPose, curr_wp):
-    """Get angular difference in degrees of current pose to current waypoint."""
-    ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
-    ang_diff = get_rel_ang_diff(ang_to_wp, pose[2])
-    return ang_diff
 
 
 class Navigator:
@@ -132,44 +103,18 @@ class Navigator:
     def get_raw_pose(self, correct_heading=True):
         """Get raw pose."""
         pose = self.loc_service.get_pose()
-        # NOTE: loc_service returns (None, None) lol.
+        # NOTE: loc_service returns (None, None).
         if not isinstance(pose, RealPose):
             return None
-        z = rel_ang_to_abs(pose.z) if correct_heading else pose.z
+        z = ang_to_heading(pose.z) if correct_heading else pose.z
         return RealPose(pose.x, pose.y, z)
-
-    def drawPose(self, mapMat, grid_location, heading):
-        """Draw pose on map."""
-        cosTheta = np.cos(np.deg2rad(heading))
-        sinTheta = np.sin(np.deg2rad(heading))
-        arrowRadius = 10
-        arrowStart = tuple(
-            map(
-                lambda x: int(round(x)),
-                (
-                    grid_location.x - arrowRadius * cosTheta,
-                    grid_location.y - arrowRadius * sinTheta,
-                ),
-            )
-        )
-        arrowEnd = tuple(
-            map(
-                lambda x: int(round(x)),
-                (
-                    grid_location.x + arrowRadius * cosTheta,
-                    grid_location.y + arrowRadius * sinTheta,
-                ),
-            )
-        )
-
-        cv2.arrowedLine(mapMat, arrowStart, arrowEnd, 0, 2, tipLength=0.5)
 
     def turnRobot(self, target_rotation):
         nav_log.info("Turning robot to face target angle...")
         rel_ang = 180
         while abs(rel_ang) > 20:
             pose = self.get_filtered_pose()
-            rel_ang = get_rel_ang_diff(
+            rel_ang = get_ang_delta(
                 pose[2], target_rotation
             )  # current heading vs target heading
 
@@ -200,7 +145,7 @@ class Navigator:
 
             if self.VISUALIZE_FLAG:
                 mapMat = self.map.grid.copy()
-                self.drawPose(mapMat, grid_location, pose[2])
+                mapMat = viz_pose(mapMat, grid_location, pose[2])
                 cv2.waitKey(1)
 
             if self.map.in_bounds(grid_location) and self.map.passable(grid_location):
@@ -222,7 +167,7 @@ class Navigator:
                 self.controller.reset()
 
                 # ROTATE ROBOT TO TARGET ORIENTATION.
-                rel_ang = get_rel_ang_diff(
+                rel_ang = get_ang_delta(
                     last_valid_pose[2], target_rotation
                 )  # current heading vs target heading
                 self.turnRobot(rel_ang)
@@ -257,7 +202,7 @@ class Navigator:
                 )
                 nav_log.info(f"WP: {curr_wp_str} \t dist_to_wp: {dist_to_wp:.2f}\n")
 
-                ang_diff = ang_diff_to_wp(last_valid_pose, curr_wp)
+                ang_diff = ang_to_waypoint(last_valid_pose, curr_wp)
 
                 # Move robot until next waypoint is reached.
                 # Determine velocity commands given distance to waypoint and heading to waypoint.
@@ -306,7 +251,7 @@ class Navigator:
 
     def set_heading(self, cur: float, tgt: float, spd=30.0):
         """Set the heading of the robot."""
-        ang = get_rel_ang_diff(cur, tgt)
+        ang = get_ang_delta(cur, tgt)
         ang = -ang if self.FLIP_Z else ang
         return self.robot.chassis.move(z=ang, z_speed=spd)
 
@@ -352,7 +297,7 @@ class Navigator:
         avg_x = np.mean([p.x for p in combined])
         avg_y = np.mean([p.y for p in combined])
         avg_z = np.mean([p.z for p in pitches])  # Yaw bad for z-heading.
-        avg_z = rel_ang_to_abs(avg_z)
+        avg_z = ang_to_heading(avg_z)
         real_pose = RealPose(avg_x, avg_y, avg_z)
         nav_log.debug(f"Measured: {real_pose}")
         return real_pose
@@ -435,8 +380,8 @@ class Navigator:
 
             cur_grid_loc = self.map.real_to_grid(ini_pose)
             tgt_grid_loc = self.map.real_to_grid(tgt_pose)
-            self.drawPose(mapMat, cur_grid_loc, ini_pose.z)
-            self.drawPose(mapMat, tgt_grid_loc, tgt_pose.z)
+            viz_pose(mapMat, cur_grid_loc, ini_pose.z)
+            viz_pose(mapMat, tgt_grid_loc, tgt_pose.z)
 
             for wp in path[::skips]:
                 grid_wp = self.map.real_to_grid(wp)
@@ -496,7 +441,7 @@ class Navigator:
             grid_location = self.map.real_to_grid(real_location)
 
             mapMat = self.map.grid.copy()
-            self.drawPose(mapMat, grid_location, pose[2])
+            mapMat = viz_pose(mapMat, grid_location, pose[2])
 
             key = cv2.waitKey(1)
             if key == ord("w") or key == ord("W"):
