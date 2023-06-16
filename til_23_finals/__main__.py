@@ -16,7 +16,6 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 import argparse
 import logging
-import time
 from typing import List
 
 import yaml
@@ -25,6 +24,7 @@ from tilsdk.localization import GridLocation, RealLocation, RealPose, SignedDist
 from tilsdk.utilities.filters import SimpleMovingAverage
 
 from .ai import prepare_ai_loop
+from .emulate import bind_robot
 from .navigation import Navigator
 from .planner import Planner
 
@@ -48,43 +48,8 @@ def main():
 
     # === Initialize robot ===
     robot = Robot()
-
-    # TODO: Move these elsewhere.
     if IS_SIM:
-
-        class Gimbal:
-            def __init__(self):
-                pass
-
-            def move(self, pitch=0, yaw=0):
-                robot.chassis.drive_speed(x=0, y=0, z=yaw/1)
-                return Action(1)
-
-            def recenter(self):
-                return Action(1)
-
-        class Action:
-            def __init__(self, pause):
-                self.start = time.time()
-                self.pause = pause
-                pass
-
-            def wait_for_completed(self):
-                """Block till action is completed."""
-                time.sleep(self.pause)
-
-            @property
-            def is_completed(self):
-                return time.time() - self.start > self.pause
-
-        def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
-            print(f"move x: {x}, y: {y}, z: {z}")
-            self.drive_speed(x/1, y/1, z/1)
-            return Action(1)
-
-        bound_method = move.__get__(robot.chassis, robot.chassis.__class__)
-        setattr(robot.chassis, "move", bound_method)
-        setattr(robot, "gimbal", Gimbal())
+        bind_robot(robot)
 
     robot.initialize(conn_type="ap")
     robot.set_robot_mode(mode="free")
@@ -212,7 +177,9 @@ def main():
 
         # Navigation loop.
         # navigator.given_navigation_loop(last_valid_pose, new_loi, target_rotation)
-        at_pos, last_pose = navigator.basic_navigation_loop(None, new_loi, target_rotation)
+        at_pos, last_pose = navigator.basic_navigation_loop(
+            None, new_loi, target_rotation
+        )
         # NOTE: last_pose is only the current pose if at_pos is true
         if at_pos:
             delta_z = last_pose.z - target_rotation
