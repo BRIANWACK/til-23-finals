@@ -15,10 +15,11 @@ from tilsdk.localization import (
     SignedDistanceGrid,
     euclidean_distance,
 )
+from tilsdk.localization.service import LocalizationService
 from tilsdk.utilities import PIDController
 
 # Exceptions for path planning.
-from .planner import InvalidStartException, NoPathFoundException
+from .planner import InvalidStartException, NoPathFoundException, Planner
 
 matplotlib.use("TkAgg")
 
@@ -28,6 +29,7 @@ DEFAULT_PID = dict(Kp=(0.5, 0.20), Ki=(0.2, 0.1), Kd=(0.0, 0.0))
 main_log = logging.getLogger("Main")
 nav_log = logging.getLogger("Nav")
 ctrl_log = logging.getLogger("Ctrl")
+
 
 def ang_difference(ang1, ang2):
     """Get angular difference in degrees of two angles in degrees.
@@ -44,17 +46,27 @@ def ang_difference(ang1, ang2):
         ang_diff -= 360
     return ang_diff
 
+
 def ang_diff_to_wp(pose: RealPose, curr_wp):
     """Get angular difference in degrees of current pose to current waypoint."""
     ang_to_wp = np.degrees(np.arctan2(curr_wp[1] - pose[1], curr_wp[0] - pose[0]))
     ang_diff = ang_difference(ang_to_wp, pose[2])
     return ang_diff
 
+
 class Navigator:
     """Navigator class."""
 
-    def __init__(self, map_, robot, loc_service, planner, pose_filter, cfg):
-        self.map: SignedDistanceGrid = map_
+    def __init__(
+        self,
+        arena_map: SignedDistanceGrid,
+        robot,
+        loc_service: LocalizationService,
+        planner: Planner,
+        pose_filter,
+        cfg,
+    ):
+        self.map = arena_map
         self.loc_service = loc_service
         self.planner = planner
         self.pose_filter = pose_filter
@@ -72,8 +84,8 @@ class Navigator:
         self.REACHED_THRESHOLD_M = cfg["REACHED_THRESHOLD_M"]
         self.ANGLE_THRESHOLD_DEG = cfg["ANGLE_THRESHOLD_DEG"]
 
-        self.BOARDSCALE = 0.955 # length of board in m
-    
+        self.BOARDSCALE = 0.955  # length of board in m
+
     def plan_path(self, start: list, goal) -> List[RealLocation]:
         """Plan path."""
         try:
@@ -96,7 +108,7 @@ class Navigator:
         if not pose:
             return None
         return self.pose_filter.update(pose)
-    
+
     def get_raw_pose(self):
         """Get raw pose."""
         pose = self.loc_service.get_pose()
@@ -104,7 +116,6 @@ class Navigator:
         if not isinstance(pose, RealPose):
             return None
         return pose
-
 
     def drawPose(self, mapMat, grid_location, heading):
         """Draw pose on map."""
@@ -147,9 +158,7 @@ class Navigator:
                 self.robot.chassis.drive_speed(x=0, z=10)
             elif rel_ang > 20:
                 # rotate clockwise
-                nav_log.info(
-                    f"Trying to turn counter-clockwise... ang left: {rel_ang}"
-                )
+                nav_log.info(f"Trying to turn counter-clockwise... ang left: {rel_ang}")
                 self.robot.chassis.drive_speed(x=0, z=-10)
             time.sleep(1)
         nav_log.info("Robot should now be facing close to target angle.")
@@ -157,7 +166,7 @@ class Navigator:
     def given_navigation_loop(self, last_valid_pose, curr_loi, target_rotation):
         """Run navigation loop."""
         path = self.plan_path(last_valid_pose, curr_loi)
-        if path is None: # Due to invalid pose
+        if path is None:  # Due to invalid pose
             return
 
         while True:
@@ -182,7 +191,9 @@ class Navigator:
                 continue
 
             dist_to_goal = euclidean_distance(last_valid_pose, curr_loi)
-            if round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M:  # Reached checkpoint.
+            if (
+                round(dist_to_goal, 2) <= self.REACHED_THRESHOLD_M
+            ):  # Reached checkpoint.
                 nav_log.info(
                     f"Reached checkpoint {last_valid_pose[0]:.2f},{last_valid_pose[1]:.2f}"
                 )
@@ -261,8 +272,12 @@ class Navigator:
         return curr_wp, prev_loi, curr_loi, try_start_tasks
 
     def getStartPose(self, pitchMag=30, yawMag=30):
+        """Get start pose."""
+        rate_limit = 0.25
+        z_cal_n = 4
+        min_reliable = 5
         poseList = []
-        
+
         self.robot.gimbal.recenter().wait_for_completed()
 
         def _cal(**kwargs):
@@ -271,7 +286,7 @@ class Navigator:
                 pose = self.get_raw_pose()
                 if pose is not None:
                     poseList.append(pose)
-                time.sleep(0.25)
+                time.sleep(rate_limit)
             gimbalAction.wait_for_completed()
 
         _cal(pitch=-pitchMag)
@@ -280,35 +295,51 @@ class Navigator:
         _cal(yaw=yawMag)
         self.robot.gimbal.recenter().wait_for_completed()
 
+        # If length of poseList is 0, np.mean will error and crash.
+        if len(poseList) < min_reliable:
+            return None
+
         avg_x = np.mean([p[0] for p in poseList])
         avg_y = np.mean([p[1] for p in poseList])
 
-        z_cal_n = 4
         z_sum = 0.0
         for _ in range(z_cal_n):
             pose = self.get_raw_pose()
             if pose is not None:
                 z_sum += pose[2]
-            time.sleep(0.25)
+            time.sleep(rate_limit)
         avg_z = z_sum / z_cal_n
 
         real_pose = RealPose(x=avg_x, y=avg_y, z=avg_z)
         return real_pose
 
-    def basic_navigation_loop(self, last_valid_pose: RealPose, curr_loi, target_rotation):
+    def check_pose_valid(self, pose: RealPose):
+        """Check whether the pose is in bounds."""
+        real_loc = RealLocation(x=pose.x, y=pose.y)
+        grid_loc = self.map.real_to_grid(real_loc)
+        if self.map.in_bounds(grid_loc) and self.map.passable(grid_loc):
+            return True
+        return False
+
+    def basic_navigation_loop(
+        self, last_valid_pose: RealPose, curr_loi, target_rotation
+    ):
         # TODO: Test movement accuracy, no simulator equivalent
         # TODO: Measure length of board, assumed to be 0.5 m now
         # TODO: Add visualization code
 
         last_valid_pose = self.getStartPose()
 
-        if ((last_valid_pose.x - curr_loi.x)**2 + (last_valid_pose.y - curr_loi.y)**2)**0.5 < self.REACHED_THRESHOLD_M:
+        if (
+            (last_valid_pose.x - curr_loi.x) ** 2
+            + (last_valid_pose.y - curr_loi.y) ** 2
+        ) ** 0.5 < self.REACHED_THRESHOLD_M:
             return True, last_valid_pose
 
         path = self.plan_path(last_valid_pose, curr_loi)
-        if path is None: # Due to invalid pose
+        if path is None:  # Due to invalid pose
             return False, last_valid_pose
-        
+
         # self.gimbal_stationary_test(30, 90)
         curr_estimated_pose = last_valid_pose
         n = 1
@@ -322,7 +353,7 @@ class Navigator:
             for wp in path[::n]:
                 grid_wp = self.map.real_to_grid(wp)
                 cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, 0, 1)
-            
+
             cv2.waitKey(1)
             cv2.imshow("Map", imutils.resize(mapMat, width=600))
 
@@ -351,18 +382,17 @@ class Navigator:
 
         speed = 0.7
         scale = 1
-        deltaX = self.BOARDSCALE/scale*(curr_loi.x - curr_estimated_pose.x)
-        deltaY = self.BOARDSCALE/scale*(curr_loi.y - curr_estimated_pose.y)
+        deltaX = self.BOARDSCALE / scale * (curr_loi.x - curr_estimated_pose.x)
+        deltaY = self.BOARDSCALE / scale * (curr_loi.y - curr_estimated_pose.y)
         self.robot.chassis.move(x=deltaY, xy_speed=speed).wait_for_completed()
         self.robot.chassis.move(y=deltaX, xy_speed=speed).wait_for_completed()
 
         # Check direction
         # current heading vs target heading
-        # rel_ang = ang_difference(last_valid_pose.z, target_rotation)  
+        # rel_ang = ang_difference(last_valid_pose.z, target_rotation)
         # self.robot.chassis.move(z=rel_ang).wait_for_completed()
         # self.robot.gimbal.move(yaw=rel_ang).wait_for_completed()
         return False, last_valid_pose
-        
 
     def WASD_loop(self, trans_vel_mag=0.5, ang_vel_mag=30):
         """Run manual control loop using WASD keys."""
@@ -452,7 +482,7 @@ class Navigator:
 
     def gimbal_moving_test2(self):
         pass
-        
+
     def TOF_test(self):
         print(f"Distance Sensor Version No.: {self.robot.sensor.get_version()}")
 
@@ -461,7 +491,7 @@ class Navigator:
 
         tof = self.robot.sensor
         tof.sub_distance(freq=1, callback=cb_distance)
-        
+
         while True:
             pass
 
@@ -473,6 +503,3 @@ class Navigator:
         self.robot.chassis.move(x=self.BOARDSCALE).wait_for_completed()
         self.robot.chassis.move(z=90).wait_for_completed()
         self.robot.chassis.move(z=-90).wait_for_completed()
-
-
-# if __name__ == "__main__":
