@@ -35,6 +35,7 @@ logging.basicConfig(
 )
 
 main_log = logging.getLogger("Main")
+ckpt_log = logging.getLogger("Ckpt")
 
 
 def start_run(rep: ReportingService):
@@ -50,6 +51,34 @@ def start_run(rep: ReportingService):
         main_log.error(f"Bad response from service.")
         main_log.error(f"Response code: {res.status}")
         raise NotImplementedError
+
+
+def check_checkpoint(rep: ReportingService, pose: RealPose):
+    """Check checkpoint response."""
+    ckpt_log.info("===== Check Checkpoint =====")
+    data = rep.check_pose(pose)
+    if isinstance(data, str):
+        if data == "End Goal Reached":
+            ckpt_log.info("Endpoint reached!")
+            rep.end_run()
+            return None
+        elif data == "Task Checkpoint Reached":
+            ckpt_log.info("Task checkpoint reached!")
+            return True
+        elif data == "Not An Expected Checkpoint":
+            # TODO: Micro-adjustment proccedure?
+            ckpt_log.info("Not within checkpoint!")
+        elif data == "You Still Have Checkpoints":
+            # NOTE: IDK what this means but the reporting service might return this?
+            ckpt_log.info("????????")
+        else:
+            ckpt_log.warning(f"Unexpected response: {data}")
+    elif isinstance(data, RealPose) or isinstance(data, tuple):
+        ckpt_log.info("Arrived at detour checkpoint!")
+        return RealPose(*data)
+    else:
+        ckpt_log.warning(f"Unexpected response: {data}")
+    return False
 
 
 def main():
@@ -94,7 +123,6 @@ def main():
         should_check_checkpoint, last_pose = navigator.basic_navigation_loop(tgt_pose)
 
         if should_check_checkpoint:
-            should_start_ai = False
             should_check_checkpoint = False
 
             delta_z = tgt_pose.z - last_pose.z
@@ -104,36 +132,19 @@ def main():
             cur_pose = navigator.measure_pose(heading_only=True)
             # cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
 
-            data = rep_service.check_pose(cur_pose)
-            if isinstance(data, str):
-                if data == "End Goal Reached":
-                    rep_service.end_run()
-                    print("=== YOU REACHED THE END ===")
-                    break
-                elif data == "Task Checkpoint Reached":
-                    should_start_ai = True
-                elif data == "Not An Expected Checkpoint":
-                    # TODO: Micro-adjustment proccedure?
-                    pass
-                elif data == "You Still Have Checkpoints":
-                    # NOTE: IDK what this means but the reporting service might return this?
-                    pass
-                else:
-                    main_log.warning(f"Unexpected response: {data}")
-
-            # robot reached detour checkpoint and received new coordinates to go to.
-            elif isinstance(data, RealPose) or isinstance(data, tuple):
-                tgt_pose = RealPose(*data)
+            status = check_checkpoint(rep_service, cur_pose)
+            if isinstance(status, RealPose):
+                tgt_pose = status
                 main_log.info(f"New target pose: {tgt_pose}")
+            elif status is None:
+                break
             else:
-                main_log.warning(f"Unexpected response: {data}")
+                should_start_ai = status
 
         if should_start_ai:
             should_start_ai = False
-            main_log.info("===== Starting AI tasks =====")
             tgt_pose = ai_loop(robot, last_pose)
             main_log.info(f"New target pose: {tgt_pose}")
-            main_log.info("===== AI tasks complete =====")
 
         ##################
         #   Test Cases   #

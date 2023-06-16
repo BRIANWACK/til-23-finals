@@ -139,6 +139,7 @@ def prepare_ai_loop(cfg, rep: ReportingService):
 
         Note, the robot is assumed to be stationary and in the correct pose!
         """
+        main_log.info("===== Starting AI Tasks =====")
         main_log.info("===== Object ReID =====")
         save_path = _reid(robot, pose, None)
         main_log.info(f"Saved next task files: {save_path}")
@@ -148,6 +149,7 @@ def prepare_ai_loop(cfg, rep: ReportingService):
         main_log.info("===== Digit Detection =====")
         target_pose = _digit(robot, pose, save_path)
         main_log.info(f"Received next target pose: {target_pose}")
+        main_log.info("===== AI Tasks Complete =====")
         return RealPose(*target_pose)
 
     return loop
