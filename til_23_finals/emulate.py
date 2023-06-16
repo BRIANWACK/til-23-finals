@@ -1,25 +1,34 @@
 """Code to emulate missing functionality in the simulator."""
 
+import logging
 import time
 
 __all__ = ["bind_robot"]
+
+log = logging.getLogger("Emulate")
 
 
 class Action:
     """Mock Action."""
 
     def __init__(self, pause):
-        self.start = time.time()
         self.pause = pause
+        self.start = time.time()
 
-    def wait_for_completed(self):
-        """Block till action is completed."""
-        time.sleep(self.pause)
+    @property
+    def _time_left(self):
+        return self.pause + self.start - time.time()
 
     @property
     def is_completed(self):
         """Whether action is completed."""
-        return time.time() - self.start > self.pause
+        return self._time_left <= 0
+
+    def wait_for_completed(self):
+        """Block till action is completed."""
+        if self.is_completed:
+            return
+        time.sleep(self._time_left)
 
 
 class Gimbal:
@@ -30,19 +39,29 @@ class Gimbal:
 
     def move(self, pitch=0, yaw=0, pitch_speed=30, yaw_speed=30):
         """Mock gimbal move."""
-        self.robot.chassis.drive_speed(x=0, y=0, z=yaw / 1)
-        return Action(1)
+        t = max(abs(pitch) / pitch_speed, abs(yaw) / yaw_speed)
+        log.info(f"[gimbal.move] pitch: {pitch}, yaw: {yaw}, t: {t}")
+        return Action(t)
 
     def recenter(self):
         """Mock gimbal recenter."""
-        return Action(1)
+        log.info("[gimbal.recenter] recentered")
+        return Action(0)
 
 
 def move(self, x=0, y=0, z=0, xy_speed=0.5, z_speed=30):
     """Mock move."""
-    print(f"move x: {x}, y: {y}, z: {z}")
-    self.drive_speed(x / 1, y / 1, z / 1)
-    return Action(1)
+    assert z == 0 or (x == 0 and y == 0), "Cannot move in xy and z at the same time."
+    if z == 0:
+        d = (x**2 + y**2) ** 0.5
+        t = d / xy_speed
+        log.info(f"[chassis.move] x: {x}, y: {y}, t: {t}")
+        self.drive_speed(x / t, y / t, 0)
+    else:
+        t = abs(z) / z_speed
+        log.info(f"[chassis.move] z: {z}, t: {t}")
+        self.drive_speed(0, 0, z / t)
+    return Action(t)
 
 
 def bind_robot(robot):
