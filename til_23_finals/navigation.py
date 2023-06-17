@@ -86,7 +86,8 @@ class Navigator(ABC):
 
     def is_pose_valid(self, loc: LocOrPose):
         """Check whether the pose is in bounds."""
-        grid_loc = self.map.real_to_grid(loc)
+        real_loc = RealLocation(loc.x, loc.y)
+        grid_loc = self.map.real_to_grid(real_loc)
         if not self.map.in_bounds(grid_loc):
             nav_log.warning(f"Pose is out of bounds: {loc}, {grid_loc}")
             return False

@@ -8,7 +8,7 @@ __all__ = ["bind_robot"]
 log = logging.getLogger("Emulate")
 
 # Multiply speed of everything by this factor to speed up testing.
-SPEED = 3
+SPEED = 1.5
 
 
 class Action:

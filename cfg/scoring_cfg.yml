@@ -17,11 +17,11 @@ detour_checkpoint:
 
 # valid checkpoints in order
 valid_checkpoints:
-  - (2.5, 1.5, 180)
-  - (0.5, 2, 270)
-  - (4, 4.5, 0)
+  - (2.5, 1.5, 140)
+  - (0.5, 2, 250)
+  - (4, 4.5, 15)
   - (6, 4.5, 90)
-  - (6.5, 0.5, 0) # end goal
+  - (6.5, 0.5, 69) # end goal
 
 # targets {<checkpoint_no> : {id : <checkpoint_no>, situation:<"hostage"/"suspect"/"none">}}
 targets:

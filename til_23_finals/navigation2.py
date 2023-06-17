@@ -14,7 +14,7 @@ from .navigation import Navigator
 
 # Exceptions for path planning.
 from .planner import InvalidStartException, NoPathFoundException, Planner
-from .types import Heading, LocOrPose
+from .types import LocOrPose
 from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, viz_pose
 
 nav_log = logging.getLogger("Nav")
@@ -128,16 +128,11 @@ class GridNavigator(Navigator):
                 continue
             return pose
 
-    def transform_axes(self, x: float, y: float, heading: Heading):
+    def transform_axes(self, x: float, y: float, heading: float):
         """Transform movement values to account for mismatch with map axes and heading."""
-        if heading == Heading.POS_X:
-            x, y = x, y
-        elif heading == Heading.POS_Y:
-            x, y = y, -x
-        elif heading == Heading.NEG_X:
-            x, y = -x, -y
-        elif heading == Heading.NEG_Y:
-            x, y = -y, x
+        a = np.deg2rad(heading)
+        R = np.array(((np.cos(a), np.sin(a)), (-np.sin(a), np.cos(a))))
+        x, y = R @ (x, y)
         if self.SWAP_XY:
             x, y = y, x
         if self.FLIP_X:
@@ -156,7 +151,7 @@ class GridNavigator(Navigator):
         self,
         cur: LocOrPose,
         tgt: LocOrPose,
-        alignment: Heading,
+        alignment: float,
         spd: float = 0.5,
         diagonal: bool = True,
     ):
@@ -182,6 +177,8 @@ class GridNavigator(Navigator):
         skips = 1
         xy_spd = 1.0
         z_spd = 60.0
+        # NOTE: Turn cardinal_move on if diagonal movement proves too inaccurate!
+        cardinal_move = False
 
         if ini_pose is None:
             ini_pose = self.wait_for_valid_pose(quick=False)
@@ -216,10 +213,13 @@ class GridNavigator(Navigator):
             cv2.imshow("Map", imutils.resize(mapMat, width=600))
             cv2.waitKey(1)
 
-        align = nearest_cardinal(ini_pose.z)
-        nav_log.info(f"Nearest cardinal: {align}")
-        # TODO: What if we hit a wall while rotating?
-        self.set_heading(ini_pose.z, align, spd=z_spd).wait_for_completed()
+        if cardinal_move:
+            align = nearest_cardinal(ini_pose.z)
+            nav_log.info(f"Nearest cardinal: {align}")
+            # TODO: What if we hit a wall while rotating?
+            self.set_heading(ini_pose.z, align, spd=z_spd).wait_for_completed()
+        else:
+            align = ini_pose.z
 
         cur_pose = ini_pose
         while False and len(path) > 0:
@@ -240,6 +240,6 @@ class GridNavigator(Navigator):
             cur_pose = RealPose(wp.x, wp.y, align)
 
         # NOTE: Temporary until planning is fixed.
-        self.move_location(cur_pose, tgt_pose, align, spd=xy_spd, diagonal=False)
+        self.move_location(cur_pose, tgt_pose, align, spd=xy_spd, diagonal=True)
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
