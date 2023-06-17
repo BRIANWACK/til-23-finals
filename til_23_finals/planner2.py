@@ -10,7 +10,7 @@ from tilsdk.localization import (
     euclidean_distance,
 )
 
-T = TypeVar("T")
+from til_23_finals.types import LocOrPose
 
 
 class NoPathFoundException(Exception):
@@ -28,6 +28,9 @@ class InvalidStartException(NoPathFoundException):
     pass
 
 
+T = TypeVar("T")
+
+
 class PriorityQueue(Generic[T]):
     """Priority queue implementation."""
 
@@ -43,7 +46,7 @@ class PriorityQueue(Generic[T]):
         """Push item into queue with priority."""
         heapq.heappush(self.elements, (priority, item))
 
-    def get(self) -> T:
+    def pop(self) -> T:
         """Pop item with highest priority from queue."""
         return heapq.heappop(self.elements)[1]
 
@@ -51,22 +54,15 @@ class PriorityQueue(Generic[T]):
 class GridPlanner:
     """Grid based path planner."""
 
-    def __init__(self, map_: SignedDistanceGrid = None, sdf_weight: float = 0.0):
+    def __init__(self, arena_map: SignedDistanceGrid):
         """Initialize planner.
 
         Parameters
         ----------
         map : SignedDistanceGrid
             Distance grid map
-        sdf_weight: float
-            Relative weight of distance in cost function.
         """
-        self.map = map_
-        self.sdf_weight = sdf_weight
-
-    def update_map(self, map: SignedDistanceGrid):
-        """Update planner with new map."""
-        self.map = map
+        self.map = arena_map
 
     def heuristic(self, a: GridLocation, b: GridLocation) -> float:
         """Heuristic function for A* pathfinding.
@@ -80,16 +76,16 @@ class GridPlanner:
         """
         return euclidean_distance(a, b)
 
-    def plan(self, start: RealLocation, goal: RealLocation) -> List[RealLocation]:
+    def plan(self, start: LocOrPose, goal: LocOrPose) -> List[RealLocation]:
         """Plan in real coordinates.
 
         Raises NoPathFileException path is not found.
 
         Parameters
         ----------
-        start: RealLocation
+        start: LocOrPose
             Starting location.
-        goal: RealLocation
+        goal: LocOrPose
             Goal location.
 
         Returns
@@ -97,10 +93,9 @@ class GridPlanner:
         path
             List of RealLocation from start to goal.
         """
-        print(
-            f"[PLANNER] START:{start.x:.2f},{start.y:.2f}; GOAL: {goal.x:.2f},{goal.y:.2f}"
-        )
-        path = self.plan_grid(self.map.real_to_grid(start), self.map.real_to_grid(goal))
+        start_loc = self.map.real_to_grid(RealLocation(start.x, start.y))
+        goal_loc = self.map.real_to_grid(RealLocation(goal.x, goal.y))
+        path = self.plan_grid(start_loc, goal_loc)
         return [self.map.grid_to_real(wp) for wp in path]
 
     def is_valid_position(self, start: GridLocation):
@@ -108,12 +103,15 @@ class GridPlanner:
 
         Returns False when grid location is out of map, or collides with obstacles.
         """
-        if self.map.in_bounds(start) and self.map.passable(start):
-            return True
-        else:
-            return False
+        return self.map.in_bounds(start) and self.map.passable(start)
 
-    def plan_grid(self, start: GridLocation, goal: GridLocation) -> List[GridLocation]:
+    def plan_grid(
+        self,
+        start: GridLocation,
+        goal: GridLocation,
+        w_sdf: float = 2.0,
+        w_dist: float = 1.0,
+    ) -> List[GridLocation]:
         """Plan in grid coordinates.
 
         Parameters
@@ -135,46 +133,38 @@ class GridPlanner:
         InvalidStartException
             When `start` is not a valid position.
         """
-        if not self.map:
-            raise RuntimeError("Planner map is not initialized.")
-
+        assert self.map is not None, "Planner map is not initialized."
         if not self.is_valid_position(start):
             raise InvalidStartException
 
-        frontier: PriorityQueue[GridLocation] = PriorityQueue()
-        frontier.put(start, 0)
-        came_from: Dict[GridLocation, GridLocation] = {}
-        cost_so_far: Dict[GridLocation, float] = {}
-        came_from[start] = None
-        cost_so_far[start] = 0
+        queue: PriorityQueue[GridLocation] = PriorityQueue()
+        walks: Dict[GridLocation, GridLocation] = {}
+        costs: Dict[GridLocation, float] = {}
 
-        while not frontier.is_empty():
-            current: GridLocation = frontier.get()
+        queue.put(start, 0)
+        walks[start] = None
+        costs[start] = 0
 
-            if current == goal:
+        while not queue.is_empty():
+            cur = queue.pop()
+            if cur == goal:
                 break
 
-            for next, step_cost, sdf in self.map.neighbours(current):
-                new_cost = (
-                    cost_so_far[current] + step_cost + self.sdf_weight * (1 / (sdf))
-                )
-                if next not in cost_so_far or new_cost < cost_so_far[next]:
-                    cost_so_far[next] = new_cost
+            for next, dist, sdf in self.map.neighbours(cur):
+                new_cost = costs[cur] + w_dist * dist - w_sdf * sdf
+                if next not in costs or new_cost < costs[next]:
                     priority = new_cost + self.heuristic(next, goal)
-                    frontier.put(next, priority)
-                    came_from[next] = current
+                    queue.put(next, priority)
+                    walks[next] = cur
+                    costs[next] = new_cost
 
-            # print(f'came from: {came_from}')
-            # print(f'goal: {goal}')
-
-        if goal not in came_from:
+        if goal not in walks:
             raise NoPathFoundException
-
-        return self.reconstruct_path(came_from, start, goal)
+        return self.reconstruct_path(walks, start, goal)
 
     def reconstruct_path(
         self,
-        came_from: Dict[GridLocation, GridLocation],
+        walks: Dict[GridLocation, GridLocation],
         start: GridLocation,
         goal: GridLocation,
     ) -> List[GridLocation]:
@@ -182,7 +172,7 @@ class GridPlanner:
 
         Parameters
         ----------
-        came_from: dict
+        walks: dict
             Dictionary mapping location to location the planner came from.
         start: GridLocation
             Start location for path.
@@ -194,13 +184,10 @@ class GridPlanner:
         path
             List of GridLocation from start to goal.
         """
-        current: GridLocation = goal
-        path: List[GridLocation] = []
-
-        while current != start:
-            path.append(current)
-            current = came_from[current]
-
-        # path.append(start)
+        cur = goal
+        path = []
+        while cur != start:
+            path.append(cur)
+            cur = walks[cur]
         path.reverse()
         return path
