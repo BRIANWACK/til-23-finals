@@ -109,7 +109,7 @@ class GridPlanner:
         self,
         start: GridLocation,
         goal: GridLocation,
-        w_sdf: float = 2.0,
+        w_sdf: float = 5.0,
         w_dist: float = 1.0,
     ) -> List[GridLocation]:
         """Plan in grid coordinates.
@@ -151,7 +151,7 @@ class GridPlanner:
                 break
 
             for next, dist, sdf in self.map.neighbours(cur):
-                new_cost = costs[cur] + w_dist * dist - w_sdf * sdf
+                new_cost = costs[cur] + w_dist * dist + w_sdf * (1 / max(sdf, 1e-6))
                 if next not in costs or new_cost < costs[next]:
                     priority = new_cost + self.heuristic(next, goal)
                     queue.put(next, priority)

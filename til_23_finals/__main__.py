@@ -19,7 +19,7 @@ from tilsdk.utilities.filters import SimpleMovingAverage
 from .ai import prepare_ai_loop
 from .emulate import bind_robot
 from .navigation2 import GridNavigator
-from .planner import Planner
+from .planner2 import GridPlanner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,8 +94,8 @@ def main():
     arena_map = loc_service.get_map()
     # Dilate obstacles virtually to avoid collision.
     arena_map = arena_map.dilated(ROBOT_RADIUS_M)
-    planner = Planner(arena_map, sdf_weight=0.5)
-    pose_filter = SimpleMovingAverage(n=3)
+    planner = GridPlanner(arena_map)
+    pose_filter = SimpleMovingAverage(n=5)
     navigator = GridNavigator(arena_map, robot, loc_service, planner, pose_filter, cfg)
     # TODO: Run initialization of AI services concurrently.
     ai_loop = prepare_ai_loop(cfg, rep_service)

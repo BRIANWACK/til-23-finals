@@ -40,7 +40,7 @@ class GridNavigator(Navigator):
     def plan_path(self, start, goal):
         """Plan path."""
         # NOTE: Temporary until planning is fixed.
-        return []
+        # return []
         try:
             path = self.planner.plan(start, goal)
             nav_log.info("Path planned.")
@@ -174,7 +174,7 @@ class GridNavigator(Navigator):
         the measured initial pose. If the initial pose is close to the target pose,
         no movement is performed.
         """
-        skips = 1
+        skips = 20
         xy_spd = 1.0
         z_spd = 60.0
         # NOTE: Turn cardinal_move on if diagonal movement proves too inaccurate!
@@ -208,7 +208,7 @@ class GridNavigator(Navigator):
             # Visualize path taken.
             for wp in path[::skips]:
                 grid_wp = self.map.real_to_grid(wp)
-                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (255, 0, 0), -1)
+                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 4, 0, 2)
 
             cv2.imshow("Map", imutils.resize(mapMat, width=600))
             cv2.waitKey(1)
@@ -222,7 +222,7 @@ class GridNavigator(Navigator):
             align = ini_pose.z
 
         cur_pose = ini_pose
-        while False and len(path) > 0:
+        while len(path) > 0:
             wp = path[0]
             path = path[skips:]
 
@@ -230,7 +230,7 @@ class GridNavigator(Navigator):
                 grid_wp = self.map.real_to_grid(wp)
 
                 # Mark current waypoint.
-                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (128, 128, 128), -1)
+                cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (255, 0, 0), -1)
                 cv2.imshow("Map", imutils.resize(mapMat, width=600))
                 cv2.waitKey(1)
 
@@ -240,6 +240,6 @@ class GridNavigator(Navigator):
             cur_pose = RealPose(wp.x, wp.y, align)
 
         # NOTE: Temporary until planning is fixed.
-        self.move_location(cur_pose, tgt_pose, align, spd=xy_spd, diagonal=True)
+        # self.move_location(cur_pose, tgt_pose, align, spd=xy_spd, diagonal=True)
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
