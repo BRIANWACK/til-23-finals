@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import List, Optional
+from typing import List
 
 import cv2
 import imutils
@@ -14,7 +14,7 @@ from .navigation import Navigator
 
 # Exceptions for path planning.
 from .planner import InvalidStartException, NoPathFoundException, Planner
-from .types import Heading
+from .types import Heading, LocOrPose
 from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, viz_pose
 
 nav_log = logging.getLogger("Nav")
@@ -70,7 +70,7 @@ class GridNavigator(Navigator):
         pitch=20,
         yaw_spd=20,
         pitch_spd=20,
-        heading_only=False,
+        heading_only=True,
         rate_limit=0.22,
         min_reliable=4,
     ):
@@ -112,15 +112,17 @@ class GridNavigator(Navigator):
         nav_log.debug(f"Measured: {real_pose}")
         return real_pose
 
-    def wait_for_valid_pose(self, ignore_invalid=False):
+    # TODO: Maybe have an extra slow and accurate mode.
+    def wait_for_valid_pose(self, ignore_invalid=False, quick=False):
         """Block until the pose received is valid."""
         while True:
-            pose = self.measure_pose()
+            pose = self.measure_pose(heading_only=quick)
             if pose is None:
                 nav_log.warning("Insufficient poses received from localization server.")
                 continue
             if not self.is_pose_valid(pose):
                 nav_log.warning("Invalid pose received from localization server.")
+                quick = False  # Try and get more accurate measurement.
                 if ignore_invalid:
                     return pose
                 continue
@@ -152,8 +154,8 @@ class GridNavigator(Navigator):
 
     def move_location(
         self,
-        cur: RealPose,
-        tgt: RealPose,
+        cur: LocOrPose,
+        tgt: LocOrPose,
         alignment: Heading,
         spd: float = 0.5,
         diagonal: bool = True,
@@ -170,7 +172,7 @@ class GridNavigator(Navigator):
             self.robot.chassis.move(x=mov_x, xy_speed=spd).wait_for_completed()
             self.robot.chassis.move(y=mov_y, xy_speed=spd).wait_for_completed()
 
-    def navigation_loop(self, tgt_pose: RealPose, ini_pose: Optional[RealPose] = None):
+    def navigation_loop(self, tgt_pose, ini_pose=None):
         """Navigate to target location, disregarding target heading.
 
         Returns whether the measured initial pose is close to the target pose and
@@ -181,7 +183,8 @@ class GridNavigator(Navigator):
         xy_spd = 1.0
         z_spd = 60.0
 
-        ini_pose = self.wait_for_valid_pose() if ini_pose is None else ini_pose
+        if ini_pose is None:
+            ini_pose = self.wait_for_valid_pose(quick=False)
         nav_log.info(f"Start: {ini_pose}")
         nav_log.info(f"Target: {tgt_pose}")
 

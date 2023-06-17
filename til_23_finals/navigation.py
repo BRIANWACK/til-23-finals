@@ -3,7 +3,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Optional, Union
 
 import cv2
 import imutils
@@ -21,6 +21,7 @@ from tilsdk.utilities import PIDController
 
 # Exceptions for path planning.
 from .planner import InvalidStartException, NoPathFoundException, Planner
+from .types import LocOrPose
 from .utils import ang_to_heading, ang_to_waypoint, get_ang_delta, viz_pose
 
 matplotlib.use("TkAgg")
@@ -62,7 +63,7 @@ class Navigator(ABC):
 
     @abstractmethod
     def plan_path(
-        self, start: RealLocation, goal: RealLocation
+        self, start: LocOrPose, goal: LocOrPose
     ) -> Union[List[RealLocation], None]:
         """Plan path."""
         raise NotImplementedError
@@ -83,17 +84,22 @@ class Navigator(ABC):
             return None
         return self.pose_filter.update(pose)
 
-    def is_pose_valid(self, pose: RealPose):
+    def is_pose_valid(self, loc: LocOrPose):
         """Check whether the pose is in bounds."""
-        real_loc = RealLocation(pose.x, pose.y)
-        grid_loc = self.map.real_to_grid(real_loc)
+        grid_loc = self.map.real_to_grid(loc)
         if not self.map.in_bounds(grid_loc):
-            nav_log.warning(f"Pose is out of bounds: {real_loc}, {grid_loc}")
+            nav_log.warning(f"Pose is out of bounds: {loc}, {grid_loc}")
             return False
         if not self.map.passable(grid_loc):
-            nav_log.warning(f"Pose is inside wall: {real_loc}, {grid_loc}")
+            nav_log.warning(f"Pose is inside wall: {loc}, {grid_loc}")
             return False
         return True
+
+    # TODO: LocNavigator should update to use this.
+    @abstractmethod
+    def navigation_loop(self, tgt_pose: LocOrPose, ini_pose: Optional[RealPose] = None):
+        """Navigation loop."""
+        raise NotImplementedError
 
 
 class LocNavigator(Navigator):

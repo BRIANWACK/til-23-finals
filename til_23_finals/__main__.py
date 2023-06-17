@@ -62,7 +62,7 @@ def check_checkpoint(rep: ReportingService, pose: RealPose):
             # TODO: Micro-adjustment proccedure?
             ckpt_log.info("Not within checkpoint!")
         elif data == "You Still Have Checkpoints":
-            # NOTE: IDK what this means but the reporting service might return this?
+            # NOTE: How would this even happen?
             ckpt_log.info("????????")
         else:
             ckpt_log.warning(f"Unexpected response: {data}")
@@ -105,8 +105,9 @@ def main():
     start_ai = False
     # Whether we should check if at checkpoint.
     check_ckpt = False
-    # Current pose (only used after AI task since stationary).
-    cur_pose = None
+    # NOTE: The run only starts when the chassis moves; Hence, we can gimbal & measure here.
+    # Current pose.
+    cur_pose = navigator.wait_for_valid_pose(quick=False)
     # Target location & rotation.
     tgt_pose = start_run(rep_service)
     main_log.info(f"Initial target: {tgt_pose}")
@@ -114,7 +115,8 @@ def main():
     main_log.info(f">>>>> Autobot rolling out! <<<<<")
     while True:
         # If measured pose is close to target pose, no movement is performed and
-        # both True and the measured initial pose is returned.
+        # both True and the measured initial pose is returned. If current pose is
+        # not None, then the navigation loop will skip the initial measurement.
         check_ckpt, last_pose = navigator.navigation_loop(tgt_pose, cur_pose)
         cur_pose = None  # Now unknown.
 
@@ -124,7 +126,7 @@ def main():
             navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
             # TODO: Is this necessary if the robot is accurate? Do we just sleep
             # till localization server catches up? What if the robot is wrong?
-            cur_pose = navigator.measure_pose(heading_only=True)
+            cur_pose = navigator.wait_for_valid_pose(quick=True)
             cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
             status = check_checkpoint(rep_service, cur_pose)
             if isinstance(status, RealPose):

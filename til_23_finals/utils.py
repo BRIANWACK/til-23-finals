@@ -11,7 +11,7 @@ import librosa
 import numpy as np
 from tilsdk.localization import GridLocation, RealPose
 
-from til_23_finals.types import Heading, ReIDClass, ReIDObject
+from til_23_finals.types import Heading, LocOrPose, ReIDClass, ReIDObject
 
 __all__ = [
     "load_audio_from_dir",
@@ -162,7 +162,7 @@ def nearest_cardinal(heading: float) -> Heading:
     return min(deltas, key=deltas.get)  # type: ignore
 
 
-def ang_to_waypoint(pose: RealPose, waypoint):
+def ang_to_waypoint(pose: RealPose, waypoint: LocOrPose):
     """Get angular difference in degrees of current pose to current waypoint."""
     ang_to_wp = np.degrees(np.arctan2(waypoint.y - pose.y, waypoint.x - pose.x))
     delta = get_ang_delta(ang_to_wp, pose.z)

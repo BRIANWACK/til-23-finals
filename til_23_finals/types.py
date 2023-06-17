@@ -1,11 +1,14 @@
 """Utility types."""
 
 from enum import Enum, IntEnum
-from typing import NamedTuple
+from typing import NamedTuple, Union
 
 import numpy as np
+from tilsdk.localization.types import RealLocation, RealPose
 
-__all__ = ["ReIDObject", "ReIDClass", "Heading", "SpeakerID"]
+__all__ = ["LocOrPose", "ReIDObject", "ReIDClass", "Heading", "SpeakerID"]
+
+LocOrPose = Union[RealPose, RealLocation]
 
 
 class ReIDClass(Enum):
