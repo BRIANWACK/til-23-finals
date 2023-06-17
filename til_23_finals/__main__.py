@@ -124,8 +124,6 @@ def main():
             check_ckpt = False
             # TODO: What if we hit wall while rotating?
             navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
-            # TODO: Is this necessary if the robot is accurate? Do we just sleep
-            # till localization server catches up? What if the robot is wrong?
             cur_pose = navigator.wait_for_valid_pose(quick=True)
             cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
             status = check_checkpoint(rep_service, cur_pose)
