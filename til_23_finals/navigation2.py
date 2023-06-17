@@ -71,14 +71,15 @@ class GridNavigator(Navigator):
         yaw_spd=20,
         pitch_spd=20,
         heading_only=False,
-        rate_limit=0.25,
+        rate_limit=0.22,
         min_reliable=4,
     ):
         """Get accurate measurement of pose.
 
-        Default magnitude of 20 & speed of 20 implies 1s per action.
-        With rate limit of 0.25s, implies 3-4 measurements per action.
-        For 4 actions, implies 12-16 measurements of location, 6-8 measurements of heading.
+        Default magnitude of 20 & speed of 20 implies 1 second per action.
+        Server rate limit is 5 per second, use rate limit of 0.22s to be safe.
+        With rate limit of 0.22s, implies 4 measurements per action.
+        For 4 actions, implies 16 measurements of location, 8 measurements of heading.
         """
         nav_log.debug("Measuring pose...")
 

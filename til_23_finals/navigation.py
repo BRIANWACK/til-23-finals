@@ -68,7 +68,7 @@ class Navigator(ABC):
         raise NotImplementedError
 
     def get_raw_pose(self, correct_heading=True):
-        """Get raw pose."""
+        """Get raw pose. Server has hard rate limit of 5 per second."""
         pose = self.loc_service.get_pose()
         # NOTE: loc_service returns (None, None).
         if not isinstance(pose, RealPose):
