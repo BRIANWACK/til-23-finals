@@ -74,6 +74,8 @@ class Navigator(ABC):
         # NOTE: loc_service returns (None, None).
         if not isinstance(pose, RealPose):
             return None
+        # Update filter for `get_filtered_pose()`.
+        self.pose_filter.update(pose)
         z = ang_to_heading(pose.z) if correct_heading else pose.z
         return RealPose(pose.x, pose.y, z)
 
@@ -82,7 +84,7 @@ class Navigator(ABC):
         pose = self.get_raw_pose()
         if pose is None:
             return None
-        return self.pose_filter.update(pose)
+        return self.pose_filter.get_value()
 
     def is_pose_valid(self, loc: LocOrPose):
         """Check whether the pose is in bounds."""
