@@ -122,22 +122,26 @@ def main():
 
         if check_ckpt:
             check_ckpt = False
-            # TODO: What if we hit wall while rotating?
-            navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
-            cur_pose = navigator.wait_for_valid_pose(quick=True)
-            cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
+            # Reuse last pose when resuming from detour.
+            cur_pose = last_pose
+            # NOTE: Scoring server doesn't care about heading.
             status = check_checkpoint(rep_service, cur_pose)
             if isinstance(status, RealPose):
                 tgt_pose = status
                 main_log.info(f"New target: {tgt_pose}")
             elif status is None:
-                break
+                break  # Endpoint.
             else:
                 start_ai = status
 
         if start_ai:
             start_ai = False
-            tgt_pose = ai_loop(robot, last_pose)
+            # TODO: What if we hit wall while rotating?
+            navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
+            cur_pose = navigator.wait_for_valid_pose(quick=True)
+            # Reuse pose when resuming from AI task + last pose xy should be more accurate.
+            cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
+            tgt_pose = ai_loop(robot, cur_pose)
             main_log.info(f"New target: {tgt_pose}")
 
     # ===== Test Cases =====
