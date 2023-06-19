@@ -199,8 +199,13 @@ class GridPlanner:
         path
             List of GridLocation from start to goal.
         """
-        ang_thres = 10  # Threshold to be considered path corner.
-        dist_thres = 15  # Threshold to filter out waypoints that are too close.
+        ang_thres = 30  # Threshold to be considered path corner.
+        dist_thres = 0.2  # Threshold to filter out waypoints that are too close.
+
+        def _dist(a, b):
+            a = self.map.grid_to_real(a)
+            b = self.map.grid_to_real(b)
+            return euclidean_distance(a, b)
 
         cur = goal
         path = [goal]
@@ -213,11 +218,11 @@ class GridPlanner:
             if (
                 dir is not None
                 and abs(ang - dir) > ang_thres
-                and euclidean_distance(path[-1], cur) > dist_thres
+                and _dist(path[-1], cur) > dist_thres
             ):
                 path.append(cur)
             dir = ang
-        if euclidean_distance(path[-1], start) < dist_thres:
+        if _dist(path[-1], start) < dist_thres:
             path.pop()
         path.reverse()
         return path
