@@ -137,7 +137,7 @@ def main():
         if start_ai:
             start_ai = False
             # TODO: What if we hit wall while rotating?
-            navigator.set_heading(last_pose.z, tgt_pose.z).wait_for_completed()
+            navigator.set_heading(last_pose.z, tgt_pose.z, Z_SPD).wait_for_completed()
             cur_pose = navigator.wait_for_valid_pose(quick=True)
             # Reuse pose when resuming from AI task + last pose xy should be more accurate.
             cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
@@ -199,5 +199,6 @@ if __name__ == "__main__":
     LOCALIZATION_SERVER_IP = cfg["LOCALIZATION_SERVER_IP"]
     LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
     ROBOT_RADIUS_M = cfg["ROBOT_RADIUS_M"]
+    Z_SPD = cfg["AI_Z_SPEED"]
 
     main()

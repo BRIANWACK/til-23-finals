@@ -8,12 +8,12 @@ import cv2
 import imutils
 import numpy as np
 from tilsdk.localization import RealPose, SignedDistanceGrid
-from tilsdk.localization.service import LocalizationService
+from tilsdk.localization.service import LocalizationService, euclidean_distance
 
 from .navigation import Navigator
 
 # Exceptions for path planning.
-from .planner import InvalidStartException, NoPathFoundException, Planner
+from .planner2 import GridPlanner, InvalidStartException, NoPathFoundException
 from .types import LocOrPose
 from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, viz_pose
 
@@ -28,19 +28,23 @@ class GridNavigator(Navigator):
         arena_map: SignedDistanceGrid,
         robot,
         loc_service: LocalizationService,
-        planner: Planner,
+        planner: GridPlanner,
         pose_filter,
         cfg,
     ):
         super(GridNavigator, self).__init__(
-            arena_map, robot, loc_service, planner, pose_filter, cfg
+            arena_map, robot, loc_service, planner, pose_filter, cfg  # type: ignore
         )
         self.SCALE = cfg["BOARDSCALE"] / cfg["EXTRASCALE"]
+        self.CARDINAL_MOVE = cfg["CARDINAL_MOVE"]
+        self.XY_SPEED = cfg["XY_SPEED"]
+        self.XY_MICRO_SPEED = cfg["XY_MICRO_SPEED"]
+        self.Z_SPEED = cfg["Z_SPEED"]
+        self.POSE_YAW_SPEED = cfg["POSE_YAW_SPEED"]
+        self.POSE_PITCH_SPEED = cfg["POSE_PITCH_SPEED"]
 
     def plan_path(self, start, goal):
         """Plan path."""
-        # NOTE: Temporary until planning is fixed.
-        # return []
         try:
             path = self.planner.plan(start, goal)
             nav_log.info("Path planned.")
@@ -66,10 +70,10 @@ class GridNavigator(Navigator):
 
     def measure_pose(
         self,
-        yaw=20,
+        yaw=30,
         pitch=20,
-        yaw_spd=20,
-        pitch_spd=20,
+        yaw_spd=None,
+        pitch_spd=None,
         heading_only=True,
         rate_limit=0.22,
         min_reliable=4,
@@ -81,13 +85,14 @@ class GridNavigator(Navigator):
         With rate limit of 0.22s, implies 4 measurements per action.
         For 4 actions, implies 16 measurements of location, 8 measurements of heading.
         """
+        yaw_spd = self.POSE_YAW_SPEED if yaw_spd is None else yaw_spd
+        pitch_spd = self.POSE_PITCH_SPEED if pitch_spd is None else pitch_spd
+
         nav_log.debug("Measuring pose...")
 
         pitches = []
         yaws = []
 
-        # TODO: Would internal compass of `chassis.sub_position` be more accurate
-        # for heading/z-angle than 8 samples of localization API?
         self.robot.gimbal.recenter().wait_for_completed()
         pitches += self._gim_pose(rate_limit, pitch=-pitch, pitch_speed=pitch_spd)
         pitches += self._gim_pose(rate_limit, pitch=pitch, pitch_speed=pitch_spd)
@@ -175,21 +180,23 @@ class GridNavigator(Navigator):
         no movement is performed.
         """
         skips = 1
-        xy_spd = 1.0
-        z_spd = 60.0
+        xy_spd = self.XY_SPEED
+        z_spd = self.Z_SPEED
         # NOTE: Turn cardinal_move on if diagonal movement proves too inaccurate!
-        cardinal_move = False
+        cardinal_move = self.CARDINAL_MOVE
 
         if ini_pose is None:
             ini_pose = self.wait_for_valid_pose(quick=False)
         nav_log.info(f"Start: {ini_pose}")
         nav_log.info(f"Target: {tgt_pose}")
 
-        if (
-            (ini_pose.x - tgt_pose.x) ** 2 + (ini_pose.y - tgt_pose.y) ** 2
-        ) ** 0.5 < self.REACHED_THRESHOLD_M:
+        dist = euclidean_distance(ini_pose, tgt_pose)
+        if dist < self.REACHED_THRESHOLD_M:
             nav_log.info("Already at target location.")
             return True, ini_pose
+        elif dist < 3 * self.REACHED_THRESHOLD_M:
+            nav_log.info("Near target location. Using slow speed.")
+            xy_spd = self.XY_MICRO_SPEED
 
         path = self.plan_path(ini_pose, tgt_pose)
         if path is None:
@@ -235,11 +242,9 @@ class GridNavigator(Navigator):
                 cv2.waitKey(1)
 
             self.move_location(cur_pose, wp, align, spd=xy_spd, diagonal=True)
-            # NOTE: This isn't our real pose, so no point drawing it.
             # TODO: Measure pose again every N waypoints to correct for drift.
+            # cur_pose = self.wait_for_valid_pose(quick=True)
             cur_pose = RealPose(wp.x, wp.y, align)
 
-        # NOTE: Temporary until planning is fixed.
-        # self.move_location(cur_pose, tgt_pose, align, spd=xy_spd, diagonal=True)
         nav_log.info(f"Navigation done! (Current pose unknown till next measurement)")
         return False, ini_pose
