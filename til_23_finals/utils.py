@@ -199,6 +199,9 @@ class ManhattanSDGrid(SignedDistanceGrid):
         """Create new instance from old instance."""
         # Convert signed distance grid from euclidean to chessboard.
         grid = old.grid
+        # Add walls around the grid.
+        b = 5
+        grid[:b, :] = grid[-b:, :] = grid[:, :b] = grid[:, -b:] = -1
         grid = grid[:, :] < 0
         grid = distance_transform_cdt(1 - grid) - distance_transform_cdt(grid)
         return cls(grid=grid, scale=old.scale)
