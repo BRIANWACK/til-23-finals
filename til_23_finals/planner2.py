@@ -11,6 +11,7 @@ from tilsdk.localization import (
 )
 
 from til_23_finals.types import LocOrPose
+from til_23_finals.utils import ManhattanSDGrid
 
 
 class NoPathFoundException(Exception):
@@ -62,7 +63,7 @@ class GridPlanner:
         map : SignedDistanceGrid
             Distance grid map
         """
-        self.map = arena_map
+        self.map = ManhattanSDGrid.from_old_class(arena_map)
 
     def heuristic(self, a: GridLocation, b: GridLocation) -> float:
         """Heuristic function for A* pathfinding.
@@ -154,14 +155,14 @@ class GridPlanner:
 
             prev = walks[cur]
             if prev is None:
-                delta_prev = (0,0)
+                delta_prev = (0, 0)
             else:
-                delta_prev = (1 if cur.x-prev.x else 0, 1 if cur.y-prev.y else 0)
+                delta_prev = (1 if cur.x - prev.x else 0, 1 if cur.y - prev.y else 0)
 
             for next, dist, sdf in self.map.neighbours(cur):
-                delta_next = (1 if next.x-cur.x else 0, 1 if next.y-cur.y else 0)
+                delta_next = (1 if next.x - cur.x else 0, 1 if next.y - cur.y else 0)
                 if delta_next != delta_prev:
-                    dist *= 2 # Penalty for changing direction of movement, larger than sqrt(2)
+                    dist *= 2  # Penalty for changing direction of movement, larger than sqrt(2)
 
                 new_cost = costs[cur] + w_dist * dist + w_sdf * (1 / max(sdf, 1e-6))
                 if next not in costs or new_cost < costs[next]:

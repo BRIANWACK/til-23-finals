@@ -9,7 +9,8 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import librosa
 import numpy as np
-from tilsdk.localization import GridLocation, RealPose
+from tilsdk.localization import GridLocation, RealPose, SignedDistanceGrid
+from tilsdk.localization.types import GridLocation
 
 from til_23_finals.types import Heading, LocOrPose, ReIDClass, ReIDObject
 
@@ -24,6 +25,7 @@ __all__ = [
     "ang_to_heading",
     "nearest_cardinal",
     "ang_to_waypoint",
+    "ManhattanSDGrid",
 ]
 
 viz_log = logging.getLogger("Viz")
@@ -167,3 +169,31 @@ def ang_to_waypoint(pose: RealPose, waypoint: LocOrPose):
     ang_to_wp = np.degrees(np.arctan2(waypoint.y - pose.y, waypoint.x - pose.x))
     delta = get_ang_delta(ang_to_wp, pose.z)
     return delta
+
+
+class ManhattanSDGrid(SignedDistanceGrid):
+    """Override neighbours to ignore diagonals for faster computation & straight paths."""
+
+    def neighbours(self, id: GridLocation) -> List[Tuple[GridLocation, float, float]]:
+        """Ignore diagonals."""
+        x, y = id.x, id.y
+        neighbours = [
+            # (GridLocation(x - 1, y - 1), _SQRT2),  # NW
+            (GridLocation(x, y - 1), 1.0),  # N
+            # (GridLocation(x + 1, y - 1), _SQRT2),  # NE
+            (GridLocation(x - 1, y), 1.0),  # W
+            (GridLocation(x + 1, y), 1.0),  # E
+            # (GridLocation(x - 1, y + 1), _SQRT2),  # SW
+            (GridLocation(x, y + 1), 1.0),  # S
+            # (GridLocation(x + 1, y + 1), _SQRT2),  # SE
+        ]
+        results = []
+        for loc, dist in neighbours:
+            if self.in_bounds(loc) and self.passable(loc):
+                results.append((loc, dist, self.grid[loc.y, loc.x]))
+        return results
+
+    @classmethod
+    def from_old_class(cls, old: SignedDistanceGrid):
+        """Create new instance from old instance."""
+        return cls(grid=old.grid, scale=old.scale)
