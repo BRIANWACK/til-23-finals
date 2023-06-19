@@ -122,7 +122,8 @@ def heading_test(nav: GridNavigator, spd=30.0):
     print(f"INITIAL HEADING: {cur_pose.z}")
     tgt = random.randint(0, 359)
     print(f"TARGET HEADING: {tgt}")
-    nav.set_heading(cur_pose.z, tgt, spd=spd).wait_for_completed()
+    succeed = nav.set_heading(cur_pose.z, tgt, spd=spd, tries=3)
+    print(f"SUCCESS: {succeed}")
     cur_pose = nav.measure_pose(heading_only=True)
     print(f"FINAL HEADING: {cur_pose.z}")
 
@@ -142,10 +143,10 @@ def advanced_navigation_test(nav: GridNavigator, spd=0.4):
     ini = nav.measure_pose(heading_only=True)
     down = RealPose(x=ini.x, y=ini.y + nav.SCALE / 2, z=0)
     right = RealPose(x=ini.x + nav.SCALE / 2, y=ini.y, z=0)
-    nav.move_location(ini, down, ini.z, spd)
-    nav.move_location(down, ini, ini.z, spd)
-    nav.move_location(ini, right, ini.z, spd)
-    nav.move_location(right, ini, ini.z, spd)
+    nav.move_location(ini, down, ini.z, spd, tries=3)
+    nav.move_location(down, ini, ini.z, spd, tries=3)
+    nav.move_location(ini, right, ini.z, spd, tries=3)
+    nav.move_location(right, ini, ini.z, spd, tries=3)
 
 
 def TOF_test(nav: Navigator):

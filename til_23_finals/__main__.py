@@ -145,8 +145,7 @@ def main():
 
         if start_ai:
             start_ai = False
-            # TODO: What if we hit wall while rotating?
-            navigator.set_heading(last_pose.z, tgt_pose.z, Z_SPD).wait_for_completed()
+            navigator.set_heading(last_pose.z, tgt_pose.z, Z_SPD, tries=3)
             cur_pose = navigator.wait_for_valid_pose(quick=True)
             # Reuse pose when resuming from AI task + last pose xy should be more accurate.
             cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)

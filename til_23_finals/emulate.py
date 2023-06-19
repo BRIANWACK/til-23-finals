@@ -18,6 +18,7 @@ class Action:
         self.pause = pause
         self.start = time.time()
         self.callback = callback
+        self.has_succeeded = False
 
     @property
     def _time_left(self):
@@ -32,6 +33,7 @@ class Action:
         return self._time_left <= 0
 
     def _trigger(self):
+        self.has_succeeded = True
         if self.callback is not None:
             self.callback()
             self.callback = None

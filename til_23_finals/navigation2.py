@@ -146,11 +146,16 @@ class GridNavigator(Navigator):
             x, y = x, -y
         return x, y
 
-    def set_heading(self, cur: float, tgt: float, spd=45.0):
+    def set_heading(self, cur: float, tgt: float, spd: float = 45.0, tries: int = -1):
         """Set the heading of the robot."""
         ang = get_ang_delta(cur, tgt)
         ang = -ang if self.FLIP_Z else ang
-        return self.robot.chassis.move(z=ang, z_speed=spd)
+        act = self.robot.chassis.move(z=ang, z_speed=spd)
+        act.wait_for_completed()
+        if not act.has_succeeded and tries > 0:
+            cur = self.wait_for_valid_pose(quick=True).z
+            return self.set_heading(cur, tgt, spd, tries=tries - 1)
+        return act.has_succeeded
 
     def move_location(
         self,
@@ -158,19 +163,18 @@ class GridNavigator(Navigator):
         tgt: LocOrPose,
         alignment: float,
         spd: float = 0.5,
-        diagonal: bool = True,
+        tries: int = -1,
     ):
         """Move location taking into account alignment."""
         delta_x = self.SCALE * (tgt.x - cur.x)
         delta_y = self.SCALE * (tgt.y - cur.y)
         mov_x, mov_y = self.transform_axes(delta_x, delta_y, alignment)
-        if diagonal:
-            self.robot.chassis.move(x=mov_x, y=mov_y, xy_speed=spd).wait_for_completed()
-        else:
-            # TODO: Based on transform_axes, figure out which axis is first, and
-            # allow choosing which axis goes first.
-            self.robot.chassis.move(x=mov_x, xy_speed=spd).wait_for_completed()
-            self.robot.chassis.move(y=mov_y, xy_speed=spd).wait_for_completed()
+        act = self.robot.chassis.move(x=mov_x, y=mov_y, xy_speed=spd)
+        act.wait_for_completed()
+        if not act.has_succeeded and tries > 0:
+            cur = self.wait_for_valid_pose(quick=False)
+            return self.move_location(cur, tgt, cur.z, spd, tries=tries - 1)
+        return act.has_succeeded
 
     def navigation_loop(self, tgt_pose, ini_pose=None):
         """Navigate to target location, disregarding target heading.
@@ -223,8 +227,7 @@ class GridNavigator(Navigator):
         if cardinal_move:
             align = nearest_cardinal(ini_pose.z)
             nav_log.info(f"Nearest cardinal: {align}")
-            # TODO: What if we hit a wall while rotating?
-            self.set_heading(ini_pose.z, align, spd=z_spd).wait_for_completed()
+            self.set_heading(ini_pose.z, align, spd=z_spd, tries=3)
         else:
             align = ini_pose.z
 
@@ -241,7 +244,7 @@ class GridNavigator(Navigator):
                 cv2.imshow("Map", imutils.resize(mapMat, width=600))
                 cv2.waitKey(1)
 
-            self.move_location(cur_pose, wp, align, spd=xy_spd, diagonal=True)
+            self.move_location(cur_pose, wp, align, spd=xy_spd, tries=3)
             # TODO: Measure pose again every N waypoints to correct for drift.
             # cur_pose = self.wait_for_valid_pose(quick=True)
             cur_pose = RealPose(wp.x, wp.y, align)
