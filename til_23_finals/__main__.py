@@ -100,6 +100,15 @@ def main():
     # TODO: Run initialization of AI services concurrently.
     ai_loop = prepare_ai_loop(cfg, rep_service)
 
+    # ===== Test Cases =====
+    if False:
+        from .tests import advanced_navigation_test, heading_test
+
+        # NOTE: Use these to tune speed and tile size.
+        while True:
+            heading_test(navigator, spd=60.0)
+            advanced_navigation_test(navigator, spd=1.0)
+
     # === Loop State/Flags ===
     # Whether to try and start AI tasks.
     start_ai = False
@@ -143,30 +152,6 @@ def main():
             cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
             tgt_pose = ai_loop(robot, cur_pose)
             main_log.info(f"New target: {tgt_pose}")
-
-    # ===== Test Cases =====
-    if False:
-        from .tests import (
-            TOF_test,
-            WASD_loop,
-            basic_navigation_test,
-            gimbal_moving_test,
-            gimbal_stationary_test,
-            heading_test,
-        )
-
-        # Test heading.
-        heading_test(navigator)
-        # Test basic movement (drive_speed) + visualisation
-        WASD_loop(navigator)
-        # Test if gimbal responds to command
-        gimbal_stationary_test(navigator)
-        # Test if can command gimbal while moving
-        gimbal_moving_test(navigator)
-        # TOF
-        TOF_test(navigator)
-        # Test accuracy of DJI Robomaster SDK's move
-        basic_navigation_test(navigator)
 
     robot.chassis.drive_speed()  # Brake.
     main_log.info("===== Mission Terminated =====")

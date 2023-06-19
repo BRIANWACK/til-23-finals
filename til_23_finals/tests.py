@@ -4,7 +4,7 @@ import cv2
 import imutils
 import matplotlib
 import matplotlib.pyplot as plt
-from tilsdk import RealLocation
+from tilsdk.localization import RealLocation, RealPose
 
 from .navigation import Navigator
 from .navigation2 import GridNavigator
@@ -19,6 +19,7 @@ __all__ = [
     "heading_test",
     "basic_navigation_test",
     "TOF_test",
+    "advanced_navigation_test",
 ]
 
 
@@ -113,7 +114,7 @@ def gimbal_moving_test(nav: GridNavigator):
     robotMoveAction.wait_for_completed()
 
 
-def heading_test(nav: GridNavigator):
+def heading_test(nav: GridNavigator, spd=30.0):
     """Test if turning to various headings is correct."""
     import random
 
@@ -121,7 +122,7 @@ def heading_test(nav: GridNavigator):
     print(f"INITIAL HEADING: {cur_pose.z}")
     tgt = random.randint(0, 359)
     print(f"TARGET HEADING: {tgt}")
-    nav.set_heading(cur_pose.z, tgt, spd=30.0).wait_for_completed()
+    nav.set_heading(cur_pose.z, tgt, spd=spd).wait_for_completed()
     cur_pose = nav.measure_pose(heading_only=True)
     print(f"FINAL HEADING: {cur_pose.z}")
 
@@ -134,6 +135,17 @@ def basic_navigation_test(nav: GridNavigator):
     nav.robot.chassis.move(x=nav.SCALE).wait_for_completed()
     nav.robot.chassis.move(z=90).wait_for_completed()
     nav.robot.chassis.move(z=-90).wait_for_completed()
+
+
+def advanced_navigation_test(nav: GridNavigator, spd=0.4):
+    """Test pathfinding between centre of tiles."""
+    ini = nav.measure_pose(heading_only=True)
+    down = RealPose(x=ini.x, y=ini.y + nav.SCALE / 2, z=0)
+    right = RealPose(x=ini.x + nav.SCALE / 2, y=ini.y, z=0)
+    nav.move_location(ini, down, ini.z, spd)
+    nav.move_location(down, ini, ini.z, spd)
+    nav.move_location(ini, right, ini.z, spd)
+    nav.move_location(right, ini, ini.z, spd)
 
 
 def TOF_test(nav: Navigator):
