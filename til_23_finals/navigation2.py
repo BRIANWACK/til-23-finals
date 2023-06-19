@@ -174,7 +174,7 @@ class GridNavigator(Navigator):
         the measured initial pose. If the initial pose is close to the target pose,
         no movement is performed.
         """
-        skips = 20
+        skips = 1
         xy_spd = 1.0
         z_spd = 60.0
         # NOTE: Turn cardinal_move on if diagonal movement proves too inaccurate!

@@ -3,6 +3,7 @@
 import heapq
 from typing import Dict, Generic, List, Tuple, TypeVar
 
+import numpy as np
 from tilsdk.localization import (
     GridLocation,
     RealLocation,
@@ -110,7 +111,7 @@ class GridPlanner:
         self,
         start: GridLocation,
         goal: GridLocation,
-        w_sdf: float = 5.0,
+        w_sdf: float = 1000.0,
         w_dist: float = 1.0,
     ) -> List[GridLocation]:
         """Plan in grid coordinates.
@@ -146,8 +147,6 @@ class GridPlanner:
         walks[start] = None
         costs[start] = 0
 
-        prev = None
-
         while not queue.is_empty():
             cur = queue.pop()
             if cur == goal:
@@ -160,11 +159,13 @@ class GridPlanner:
                 delta_prev = (1 if cur.x - prev.x else 0, 1 if cur.y - prev.y else 0)
 
             for next, dist, sdf in self.map.neighbours(cur):
+                cost = w_dist * dist + w_sdf / max(sdf, 1e-6)
+
                 delta_next = (1 if next.x - cur.x else 0, 1 if next.y - cur.y else 0)
                 if delta_next != delta_prev:
-                    dist *= 2  # Penalty for changing direction of movement, larger than sqrt(2)
+                    cost *= 2  # Penalty for changing direction of movement, larger than sqrt(2)
 
-                new_cost = costs[cur] + w_dist * dist + w_sdf * (1 / max(sdf, 1e-6))
+                new_cost = costs[cur] + cost
                 if next not in costs or new_cost < costs[next]:
                     priority = new_cost + self.heuristic(next, goal)
                     queue.put(next, priority)
@@ -197,10 +198,25 @@ class GridPlanner:
         path
             List of GridLocation from start to goal.
         """
+        ang_thres = 10  # Threshold to be considered path corner.
+        dist_thres = 15  # Threshold to filter out waypoints that are too close.
+
         cur = goal
-        path = []
+        path = [goal]
+        dir = None
         while cur != start:
-            path.append(cur)
+            # path.append(cur)
+            prev = cur
             cur = walks[cur]
+            ang = np.degrees(np.arctan2(cur.y - prev.y, cur.x - prev.x))
+            if (
+                dir is not None
+                and abs(ang - dir) > ang_thres
+                and euclidean_distance(path[-1], cur) > dist_thres
+            ):
+                path.append(cur)
+            dir = ang
+        if euclidean_distance(path[-1], start) < dist_thres:
+            path.pop()
         path.reverse()
         return path
