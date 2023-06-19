@@ -76,7 +76,8 @@ class GridPlanner:
         b: GridLocation
             Goal location.
         """
-        return euclidean_distance(a, b)
+        # return euclidean_distance(a, b)
+        return abs(a.x - b.x) + abs(a.y - b.y)
 
     def plan(self, start: LocOrPose, goal: LocOrPose) -> List[RealLocation]:
         """Plan in real coordinates.

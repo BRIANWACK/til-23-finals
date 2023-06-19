@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import librosa
 import numpy as np
+from scipy.ndimage import distance_transform_cdt
 from tilsdk.localization import GridLocation, RealPose, SignedDistanceGrid
 from tilsdk.localization.types import GridLocation
 
@@ -196,4 +197,8 @@ class ManhattanSDGrid(SignedDistanceGrid):
     @classmethod
     def from_old_class(cls, old: SignedDistanceGrid):
         """Create new instance from old instance."""
-        return cls(grid=old.grid, scale=old.scale)
+        # Convert signed distance grid from euclidean to chessboard.
+        grid = old.grid
+        grid = grid[:, :] < 0
+        grid = distance_transform_cdt(1 - grid) - distance_transform_cdt(grid)
+        return cls(grid=grid, scale=old.scale)
