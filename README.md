@@ -28,6 +28,8 @@ pip install whl/*
 pip install -e ./til-23-cv/ultralytics --no-build-isolation --no-deps
 pip install -e ./til-23-cv --no-build-isolation --no-deps
 pip install -e ./til-23-asr --no-build-isolation --no-deps
+# If you wish to use the (modified) simulator.
+pip install -e ./til-23-sdk2 --no-build-isolation --no-deps
 ```
 
 ```sh
