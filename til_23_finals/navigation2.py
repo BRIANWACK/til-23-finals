@@ -143,6 +143,7 @@ class GridNavigator(Navigator):
         ini_pose: RealPose,
         tgt_pose: RealPose,
         act_pose: RealPose,
+        real: bool,
         use_past_measurements: bool,
         dist_thresh=0.5,
         tail=3,
@@ -159,6 +160,9 @@ class GridNavigator(Navigator):
         if delta_y_moved < dist_thresh:
             delta_y_moved = None
             delta_y_server = None
+
+        new_xScale = None
+        new_yScale = None
 
         if use_past_measurements:
             # Average with past measurements.
@@ -190,9 +194,9 @@ class GridNavigator(Navigator):
             total_x_server = df["x_server"].dropna().tail(tail).sum()
             total_y_server = df["y_server"].dropna().tail(tail).sum()
             if total_x_moved > dist_thresh:
-                self.xScale = total_x_moved / max(1e-6, total_x_server)
+                new_xScale = total_x_moved / max(1e-6, total_x_server)
             if total_y_moved > dist_thresh:
-                self.yScale = total_y_moved / max(1e-6, total_y_server)
+                new_yScale = total_y_moved / max(1e-6, total_y_server)
 
             df.loc[idx, "x_scale"] = self.xScale
             df.loc[idx, "y_scale"] = self.yScale
@@ -200,11 +204,16 @@ class GridNavigator(Navigator):
 
         else:
             if delta_x_moved is not None:
-                self.xScale = delta_x_moved / max(1e-6, delta_x_server)
+                new_xScale = delta_x_moved / max(1e-6, delta_x_server)
             if delta_y_moved is not None:
-                self.yScale = delta_y_moved / max(1e-6, delta_y_server)
+                new_yScale = delta_y_moved / max(1e-6, delta_y_server)
 
-        nav_log.info(f"Current Scale:\n\tx: {self.xScale}\n\ty: {self.yScale}")
+        if real and new_xScale is not None:
+            self.xScale = new_xScale
+        if real and new_yScale is not None:
+            self.yScale = new_yScale
+
+        nav_log.info(f"Calculated Scale:\n\tx: {new_xScale}\n\ty: {new_yScale}")
 
     def transform_axes(self, x: float, y: float, heading: float):
         """Transform movement values to account for mismatch with map axes and heading."""

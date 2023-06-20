@@ -130,10 +130,12 @@ def main():
         # not None, then the navigation loop will skip the initial measurement.
         check_ckpt, last_pose = navigator.navigation_loop(tgt_pose, cur_pose)
 
-        if CALIBRATE_SCALE and cal_pose_tgt is not None:
+        if cal_pose_tgt is not None:
             # Calibrate using "previous previous" position and target.
             cal_pose, cal_tgt = cal_pose_tgt
-            navigator.calibrate_scale(cal_pose, cal_tgt, last_pose, CALIBRATE_SCALE_AVG)
+            navigator.calibrate_scale(
+                cal_pose, cal_tgt, last_pose, CALIBRATE_SCALE, CALIBRATE_SCALE_AVG
+            )
 
         cal_pose_tgt = last_pose, tgt_pose
         cur_pose = None  # Now unknown.
