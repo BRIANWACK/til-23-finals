@@ -38,6 +38,9 @@ def prepare_ai_loop(cfg, rep: ReportingService):
         SPEAKER_SERVICE: type = NeMoSpeakerIDService
         DIGIT_SERVICE: type = WhisperDigitDetectionService
 
+        # from til_23_finals.services.digit import FasterWhisperDigitDetectionService
+        # DIGIT_SERVICE = FasterWhisperDigitDetectionService
+
     else:
         from til_23_finals.services.mock import (
             MockDigitDetectionService,

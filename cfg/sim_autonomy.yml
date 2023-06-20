@@ -25,6 +25,7 @@ POSE_YAW_SPEED: 30.0
 POSE_PITCH_SPEED: 20.0
 
 NLP_MODEL_DIR: models/large-v2.pt
+# NLP_MODEL_DIR: models/faster-whisper-large-v2
 CV_MODEL_DIR: models/det.pt
 REID_MODEL_DIR: models/reid.pt
 SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
