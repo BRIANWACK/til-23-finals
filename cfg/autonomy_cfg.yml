@@ -37,8 +37,6 @@ ZIP_SAVE_DIR: temp
 VISUALIZE_FLAG: true
 
 # In metres.
-# BOARDSCALE: 0.955
-# EXTRASCALE: 1.0
 CALIBRATESCALE: true
 CALIBRATESCALEAVG: true # Calibrates scale by averaging with past measurements. If false, only use latest measurement.
 X_SCALE: 1.0 # Starting x_scale

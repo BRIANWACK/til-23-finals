@@ -112,7 +112,7 @@ class GridPlanner:
         self,
         start: GridLocation,
         goal: GridLocation,
-        w_sdf: float = 1000.0,
+        w_sdf: float = 500.0,
         w_dist: float = 1.0,
     ) -> List[GridLocation]:
         """Plan in grid coordinates.

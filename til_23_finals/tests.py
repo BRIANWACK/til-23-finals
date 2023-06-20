@@ -108,7 +108,7 @@ def gimbal_stationary_test(nav: Navigator, pitchMag=30, yawMag=30):
 
 def gimbal_moving_test(nav: GridNavigator):
     """Gimbal moving test."""
-    robotMoveAction = nav.robot.chassis.move(y=nav.SCALE)
+    robotMoveAction = nav.robot.chassis.move(y=nav.yScale)
     gimbalMoveAction = nav.robot.gimbal.move(pitch=-60)
     gimbalMoveAction.wait_for_completed()
     robotMoveAction.wait_for_completed()
@@ -130,10 +130,10 @@ def heading_test(nav: GridNavigator, spd=30.0):
 
 def basic_navigation_test(nav: GridNavigator):
     """Move by 1 board length up, down, left, right, and turn 90 deg clockwise and anti-clockwise."""
-    nav.robot.chassis.move(y=nav.SCALE).wait_for_completed()
-    nav.robot.chassis.move(y=-nav.SCALE).wait_for_completed()
-    nav.robot.chassis.move(x=-nav.SCALE).wait_for_completed()
-    nav.robot.chassis.move(x=nav.SCALE).wait_for_completed()
+    nav.robot.chassis.move(y=nav.yScale).wait_for_completed()
+    nav.robot.chassis.move(y=-nav.yScale).wait_for_completed()
+    nav.robot.chassis.move(x=-nav.xScale).wait_for_completed()
+    nav.robot.chassis.move(x=nav.xScale).wait_for_completed()
     nav.robot.chassis.move(z=90).wait_for_completed()
     nav.robot.chassis.move(z=-90).wait_for_completed()
 
@@ -141,8 +141,8 @@ def basic_navigation_test(nav: GridNavigator):
 def advanced_navigation_test(nav: GridNavigator, spd=0.4):
     """Test pathfinding between centre of tiles."""
     ini = nav.measure_pose(heading_only=True)
-    down = RealPose(x=ini.x, y=ini.y + nav.SCALE / 2, z=0)
-    right = RealPose(x=ini.x + nav.SCALE / 2, y=ini.y, z=0)
+    down = RealPose(x=ini.x, y=ini.y + 1, z=0)
+    right = RealPose(x=ini.x + 1, y=ini.y, z=0)
     nav.move_location(ini, down, ini.z, spd, tries=3)
     nav.move_location(down, ini, ini.z, spd, tries=3)
     nav.move_location(ini, right, ini.z, spd, tries=3)

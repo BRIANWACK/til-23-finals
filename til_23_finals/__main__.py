@@ -114,6 +114,8 @@ def main():
     start_ai = False
     # Whether we should check if at checkpoint.
     check_ckpt = False
+    # Used for calibration.
+    cal_pose_tgt = None
     # NOTE: The run only starts when the chassis moves; Hence, we can gimbal & measure here.
     # Current pose.
     cur_pose = navigator.wait_for_valid_pose(quick=False)
@@ -127,10 +129,13 @@ def main():
         # both True and the measured initial pose is returned. If current pose is
         # not None, then the navigation loop will skip the initial measurement.
         check_ckpt, last_pose = navigator.navigation_loop(tgt_pose, cur_pose)
-        
-        if cfg["CALIBRATESCALE"] and cur_pose is not None:
-            navigator.calibrate_scale(tgt_pose, cur_pose, cfg["CALIBRATESCALEAVG"])            
 
+        if CALIBRATE_SCALE and cal_pose_tgt is not None:
+            # Calibrate using "previous previous" position and target.
+            cal_pose, cal_tgt = cal_pose_tgt
+            navigator.calibrate_scale(cal_pose, cal_tgt, last_pose, CALIBRATE_SCALE_AVG)
+
+        cal_pose_tgt = last_pose, tgt_pose
         cur_pose = None  # Now unknown.
 
         if check_ckpt:
@@ -188,5 +193,7 @@ if __name__ == "__main__":
     LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
     ROBOT_RADIUS_M = cfg["ROBOT_RADIUS_M"]
     Z_SPD = cfg["AI_Z_SPEED"]
+    CALIBRATE_SCALE = cfg["CALIBRATESCALE"]
+    CALIBRATE_SCALE_AVG = cfg["CALIBRATESCALEAVG"]
 
     main()

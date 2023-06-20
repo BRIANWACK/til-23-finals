@@ -1,6 +1,7 @@
 """Grid based navigation code."""
 
 import logging
+import os
 import time
 from typing import List
 
@@ -19,6 +20,8 @@ from .types import LocOrPose
 from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, viz_pose
 
 nav_log = logging.getLogger("Nav")
+
+CAL_FILE = "calibration.csv"
 
 
 class GridNavigator(Navigator):
@@ -42,7 +45,6 @@ class GridNavigator(Navigator):
         self.Z_SPEED = cfg["Z_SPEED"]
         self.POSE_YAW_SPEED = cfg["POSE_YAW_SPEED"]
         self.POSE_PITCH_SPEED = cfg["POSE_PITCH_SPEED"]
-        # self.SCALE = cfg["BOARDSCALE"] / cfg["EXTRASCALE"]
         self.xScale = cfg["X_SCALE"]
         self.yScale = cfg["Y_SCALE"]
 
@@ -135,42 +137,74 @@ class GridNavigator(Navigator):
                     return pose
                 continue
             return pose
-        
-    def calibrate_scale(self, tgt_pose: RealPose, cur_pose: RealPose, use_past_measurements: bool, dist_thresh=0.5):
-        tgt_pose_server = self.wait_for_valid_pose(quick=False)
 
-        delta_x_moved = self.xScale*(tgt_pose.x - cur_pose.x)
-        delta_y_moved = self.yScale*(tgt_pose.y - cur_pose.y)
-        delta_x_server = tgt_pose_server.x - cur_pose.x
-        delta_y_server = tgt_pose_server.y - cur_pose.y
+    def calibrate_scale(
+        self,
+        ini_pose: RealPose,
+        tgt_pose: RealPose,
+        act_pose: RealPose,
+        use_past_measurements: bool,
+        dist_thresh=0.5,
+        tail=3,
+    ):
+        """Calibrate scale."""
+        delta_x_moved = abs(self.xScale * (tgt_pose.x - ini_pose.x))
+        delta_y_moved = abs(self.yScale * (tgt_pose.y - ini_pose.y))
+        delta_x_server = abs(act_pose.x - ini_pose.x)
+        delta_y_server = abs(act_pose.y - ini_pose.y)
+
+        if delta_x_moved < dist_thresh:
+            delta_x_moved = None
+            delta_x_server = None
+        if delta_y_moved < dist_thresh:
+            delta_y_moved = None
+            delta_y_server = None
 
         if use_past_measurements:
-            # Average with past measurements
-            df : pd.DataFrame = pd.read_csv("til_23_finals/scale_measurements.csv")
-            total_x_moved = df["x_move"].sum() + delta_x_moved
-            total_y_moved = df["y_move"].sum() + delta_y_moved
-            total_x_server = df["x_server"].sum() + delta_x_server
-            total_y_server = df["y_server"].sum() + delta_y_server
-            self.xScale = total_x_moved/total_x_server if total_x_moved > dist_thresh else 1.0
-            self.yScale = total_y_moved/total_y_server if total_y_moved > dist_thresh else 1.0
+            # Average with past measurements.
+            if not os.path.exists(CAL_FILE):
+                df = pd.DataFrame(
+                    [],
+                    columns=[
+                        "x_move",
+                        "y_move",
+                        "x_server",
+                        "y_server",
+                        "x_scale",
+                        "y_scale",
+                    ],
+                )
+                df.to_csv(CAL_FILE, index=False)
+            df = pd.read_csv(CAL_FILE)
 
-            new_row = {
-                "x_move": delta_x_moved,
-                "y_move": delta_y_moved,
-                "x_server": delta_x_server,
-                "y_server": delta_y_server,
-                "x_scale": self.xScale,
-                "y_scale": self.yScale
-                }
-            num_rows = df.count()["x_move"]
-            df.loc[num_rows] = list(map(abs, new_row.values()))
-            df.to_csv("til_23_finals/scale_measurements.csv", index=None) 
+            idx = len(df)
+            df.loc[idx] = dict(
+                x_move=delta_x_moved,
+                y_move=delta_y_moved,
+                x_server=delta_x_server,
+                y_server=delta_y_server,
+            )
+
+            total_x_moved = df["x_move"].dropna().tail(tail).sum()
+            total_y_moved = df["y_move"].dropna().tail(tail).sum()
+            total_x_server = df["x_server"].dropna().tail(tail).sum()
+            total_y_server = df["y_server"].dropna().tail(tail).sum()
+            if total_x_moved > dist_thresh:
+                self.xScale = total_x_moved / max(1e-6, total_x_server)
+            if total_y_moved > dist_thresh:
+                self.yScale = total_y_moved / max(1e-6, total_y_server)
+
+            df.loc[idx, "x_scale"] = self.xScale
+            df.loc[idx, "y_scale"] = self.yScale
+            df.to_csv(CAL_FILE, index=False)
 
         else:
-            self.xScale = delta_x_moved/delta_x_server if delta_x_moved > dist_thresh else 1.0
-            self.yScale = delta_x_moved/delta_y_server if delta_y_moved > dist_thresh else 1.0
+            if delta_x_moved is not None:
+                self.xScale = delta_x_moved / max(1e-6, delta_x_server)
+            if delta_y_moved is not None:
+                self.yScale = delta_y_moved / max(1e-6, delta_y_server)
 
-        print(f"New scaling:\n\tx: {self.xScale}\n\ty: {self.yScale}")
+        nav_log.info(f"Current Scale:\n\tx: {self.xScale}\n\ty: {self.yScale}")
 
     def transform_axes(self, x: float, y: float, heading: float):
         """Transform movement values to account for mismatch with map axes and heading."""
@@ -205,8 +239,6 @@ class GridNavigator(Navigator):
         tries: int = -1,
     ):
         """Move location taking into account alignment."""
-        # delta_x = self.SCALE * (tgt.x - cur.x)
-        # delta_y = self.SCALE * (tgt.y - cur.y)
         delta_x = self.xScale * (tgt.x - cur.x)
         delta_y = self.yScale * (tgt.y - cur.y)
         mov_x, mov_y = self.transform_axes(delta_x, delta_y, alignment)
