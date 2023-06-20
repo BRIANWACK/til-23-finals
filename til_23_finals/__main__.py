@@ -127,6 +127,10 @@ def main():
         # both True and the measured initial pose is returned. If current pose is
         # not None, then the navigation loop will skip the initial measurement.
         check_ckpt, last_pose = navigator.navigation_loop(tgt_pose, cur_pose)
+        
+        if cfg["CALIBRATESCALE"] and cur_pose is not None:
+            navigator.calibrate_scale(tgt_pose, cur_pose, cfg["CALIBRATESCALEAVG"])            
+
         cur_pose = None  # Now unknown.
 
         if check_ckpt:

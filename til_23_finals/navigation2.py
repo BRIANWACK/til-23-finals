@@ -7,6 +7,7 @@ from typing import List
 import cv2
 import imutils
 import numpy as np
+import pandas as pd
 from tilsdk.localization import RealPose, SignedDistanceGrid
 from tilsdk.localization.service import LocalizationService, euclidean_distance
 
@@ -35,13 +36,15 @@ class GridNavigator(Navigator):
         super(GridNavigator, self).__init__(
             arena_map, robot, loc_service, planner, pose_filter, cfg  # type: ignore
         )
-        self.SCALE = cfg["BOARDSCALE"] / cfg["EXTRASCALE"]
         self.CARDINAL_MOVE = cfg["CARDINAL_MOVE"]
         self.XY_SPEED = cfg["XY_SPEED"]
         self.XY_MICRO_SPEED = cfg["XY_MICRO_SPEED"]
         self.Z_SPEED = cfg["Z_SPEED"]
         self.POSE_YAW_SPEED = cfg["POSE_YAW_SPEED"]
         self.POSE_PITCH_SPEED = cfg["POSE_PITCH_SPEED"]
+        # self.SCALE = cfg["BOARDSCALE"] / cfg["EXTRASCALE"]
+        self.xScale = cfg["X_SCALE"]
+        self.yScale = cfg["Y_SCALE"]
 
     def plan_path(self, start, goal):
         """Plan path."""
@@ -132,6 +135,42 @@ class GridNavigator(Navigator):
                     return pose
                 continue
             return pose
+        
+    def calibrate_scale(self, tgt_pose: RealPose, cur_pose: RealPose, use_past_measurements: bool, dist_thresh=0.5):
+        tgt_pose_server = self.wait_for_valid_pose(quick=False)
+
+        delta_x_moved = self.xScale*(tgt_pose.x - cur_pose.x)
+        delta_y_moved = self.yScale*(tgt_pose.y - cur_pose.y)
+        delta_x_server = tgt_pose_server.x - cur_pose.x
+        delta_y_server = tgt_pose_server.y - cur_pose.y
+
+        if use_past_measurements:
+            # Average with past measurements
+            df : pd.DataFrame = pd.read_csv("til_23_finals/scale_measurements.csv")
+            total_x_moved = df["x_move"].sum() + delta_x_moved
+            total_y_moved = df["y_move"].sum() + delta_y_moved
+            total_x_server = df["x_server"].sum() + delta_x_server
+            total_y_server = df["y_server"].sum() + delta_y_server
+            self.xScale = total_x_moved/total_x_server if total_x_moved > dist_thresh else 1.0
+            self.yScale = total_y_moved/total_y_server if total_y_moved > dist_thresh else 1.0
+
+            new_row = {
+                "x_move": delta_x_moved,
+                "y_move": delta_y_moved,
+                "x_server": delta_x_server,
+                "y_server": delta_y_server,
+                "x_scale": self.xScale,
+                "y_scale": self.yScale
+                }
+            num_rows = df.count()["x_move"]
+            df.loc[num_rows] = list(map(abs, new_row.values()))
+            df.to_csv("til_23_finals/scale_measurements.csv", index=None) 
+
+        else:
+            self.xScale = delta_x_moved/delta_x_server if delta_x_moved > dist_thresh else 1.0
+            self.yScale = delta_x_moved/delta_y_server if delta_y_moved > dist_thresh else 1.0
+
+        print(f"New scaling:\n\tx: {self.xScale}\n\ty: {self.yScale}")
 
     def transform_axes(self, x: float, y: float, heading: float):
         """Transform movement values to account for mismatch with map axes and heading."""
@@ -166,8 +205,10 @@ class GridNavigator(Navigator):
         tries: int = -1,
     ):
         """Move location taking into account alignment."""
-        delta_x = self.SCALE * (tgt.x - cur.x)
-        delta_y = self.SCALE * (tgt.y - cur.y)
+        # delta_x = self.SCALE * (tgt.x - cur.x)
+        # delta_y = self.SCALE * (tgt.y - cur.y)
+        delta_x = self.xScale * (tgt.x - cur.x)
+        delta_y = self.yScale * (tgt.y - cur.y)
         mov_x, mov_y = self.transform_axes(delta_x, delta_y, alignment)
         act = self.robot.chassis.move(x=mov_x, y=mov_y, xy_speed=spd)
         act.wait_for_completed()
