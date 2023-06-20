@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 import torch
 from nemo.collections.asr.models import EncDecSpeakerLabelModel as NeMoModel
+from scipy.ndimage import gaussian_filter1d, maximum_filter1d, minimum_filter1d
 from til_23_asr import VoiceExtractor
 from torchaudio.functional import resample
 
@@ -13,7 +14,7 @@ from til_23_finals.types import SpeakerID
 from til_23_finals.utils import cos_sim, thres_strategy_naive
 
 from .abstract import AbstractSpeakerIDService
-from .speaker_hack import CUSTOM_EXTRACTOR_CFG
+from .speaker_hack import CUSTOM_EXTRACTOR_CFG, CUSTOM_OTHER_CFG
 
 __all__ = ["NeMoSpeakerIDService"]
 
@@ -30,7 +31,41 @@ DEFAULT_EXTRACTOR_CFG = dict(
     noise_removal_limit_db=5,
 )
 
-USE_EXTRACTOR = False
+DEFAULT_OTHER_CFG = dict(
+    use_shifts=True,
+    shift=0.0025,
+    use_agc=False,
+    agc_window=0.4,
+    speed=1.0,
+)
+
+USE_EXTRACTOR = True
+
+
+def shift_and_pad(wav: torch.Tensor, shift: float) -> torch.Tensor:
+    """Shift and pad the input waveform."""
+    T = len(wav)
+    n_shift = int(T * shift)
+    idx = torch.arange(T, device=wav.device)
+    idx = idx.roll(n_shift)
+    wav = wav[idx]
+    if n_shift > 0:
+        wav[:n_shift] = 0
+    else:
+        wav[n_shift:] = 0
+    return wav
+
+
+def agc(wav: torch.Tensor, sr: int, window: float = 1.0) -> torch.Tensor:
+    """Automatic Gain Control."""
+    size = int(sr * window)
+    ori_device = wav.device
+    wav = wav.numpy(force=True)
+    gains = 1 / maximum_filter1d(abs(wav), size=size)
+    # gains = minimum_filter1d(gains, size=size)
+    # gains = gaussian_filter1d(gains, sigma=size / 2)
+    wav = (wav * gains).clip(-1, 1)
+    return torch.tensor(wav, device=ori_device)
 
 
 class NeMoSpeakerIDService(AbstractSpeakerIDService):
@@ -77,25 +112,37 @@ class NeMoSpeakerIDService(AbstractSpeakerIDService):
             log.critical("NeMoSpeakerIDService not activated!")
 
         cfg = {**DEFAULT_EXTRACTOR_CFG, **CUSTOM_EXTRACTOR_CFG.get(team_id, {})}
+        ecfg = {**DEFAULT_OTHER_CFG, **CUSTOM_OTHER_CFG.get(team_id, {})}
         raw, raw_sr = torch.tensor(audio_waveform, device=self.device), sampling_rate
 
         if USE_EXTRACTOR:
-            clean, clean_sr = self.extractor.forward(raw, sampling_rate, **cfg)
+            clean, clean_sr = self.extractor.forward(raw, raw_sr, **cfg)
 
         raw = resample(raw, orig_freq=raw_sr, new_freq=self.model_sr)
         raw = raw[None]
         wav_len = torch.tensor([raw.shape[1]], device=self.device)
         _, raw_embed = self.model.forward(input_signal=raw, input_signal_length=wav_len)
-        raw_embed = raw_embed[0].numpy(force=True)
+        raw_embed = raw_embed.mean(0).numpy(force=True)
 
         if USE_EXTRACTOR:
-            clean = resample(clean, orig_freq=clean_sr, new_freq=self.model_sr)
-            clean = clean[None]
-            clean_len = torch.tensor([clean.shape[1]], device=self.device)
+            clean = resample(
+                clean, orig_freq=clean_sr // ecfg["speed"], new_freq=self.model_sr
+            )
+            if ecfg["use_agc"]:
+                clean = agc(clean, clean_sr, ecfg["agc_window"])
+            if ecfg["use_shifts"]:
+                v = ecfg["shift"]
+                clean_a = shift_and_pad(clean, v)
+                clean_b = shift_and_pad(clean, -v)
+                clean = torch.stack([clean, clean_a, clean_b])
+                clean_len = torch.tensor([clean.shape[1]] * 3, device=self.device)
+            else:
+                clean = clean[None]
+                clean_len = torch.tensor([clean.shape[1]], device=self.device)
             _, clean_embed = self.model.forward(
                 input_signal=clean, input_signal_length=clean_len
             )
-            clean_embed = clean_embed[0].numpy(force=True)
+            clean_embed = clean_embed.mean(0).numpy(force=True)
         else:
             clean_embed = np.ones_like(raw_embed)
 

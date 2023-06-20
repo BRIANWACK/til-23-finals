@@ -28,11 +28,11 @@ class BasicObjectReIDService(AbstractObjectReIDService):
     """Basic implementation of `AbstractObjectReIDService`."""
 
     # TODO: Expose below hardcoded configs in `autonomy_cfg.yml` config file.
-    det_conf_thres = 0.6
+    det_conf_thres = 0.8  # 0.7
     det_iou_thres = 0.7
-    reid_thres = 0.25
+    reid_thres = 0.4  # 0.25
     reid_pad = 0.075
-    yolo_tta = True
+    yolo_tta = True  # False
 
     def __init__(self, yolo_model_path, reid_model_path, device=BEST_DEVICE):
         """Initialize BasicObjectReIDService.
