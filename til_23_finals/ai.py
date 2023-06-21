@@ -8,7 +8,7 @@ from tilsdk.localization.types import RealPose
 from tilsdk.mock_robomaster.robot import Robot
 from tilsdk.reporting.service import ReportingService
 
-from til_23_finals.utils import enable_camera, load_audio_from_dir, viz_reid
+from til_23_finals.utils import enable_camera, load_audio_from_dir, save_image, viz_reid
 
 main_log = logging.getLogger("AI")
 
@@ -98,8 +98,9 @@ def prepare_ai_loop(cfg, rep: ReportingService):
         viz = viz_reid(img, dets)
 
         if VISUALIZE:
-            cv2.imshow("Object View", viz)
-            cv2.waitKey(1)
+            save_image(viz, "reid")
+            # cv2.imshow("Object View", viz)
+            # cv2.waitKey(1)
 
         return rep.report_situation(viz, pose, lbl.value, ZIP_SAVE_DIR)
 

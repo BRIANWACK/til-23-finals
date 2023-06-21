@@ -17,7 +17,7 @@ from .navigation import Navigator
 # Exceptions for path planning.
 from .planner2 import GridPlanner, InvalidStartException, NoPathFoundException
 from .types import LocOrPose
-from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, viz_pose
+from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, save_image, viz_pose
 
 nav_log = logging.getLogger("Nav")
 
@@ -303,8 +303,9 @@ class GridNavigator(Navigator):
                 grid_wp = self.map.real_to_grid(wp)
                 cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 4, 0, 2)
 
-            cv2.imshow("Map", imutils.resize(mapMat, width=600))
-            cv2.waitKey(1)
+            save_image(imutils.resize(mapMat, width=600), "map")
+            # cv2.imshow("Map", imutils.resize(mapMat, width=600))
+            # cv2.waitKey(1)
 
         if cardinal_move:
             align = nearest_cardinal(ini_pose.z)
@@ -323,8 +324,9 @@ class GridNavigator(Navigator):
 
                 # Mark current waypoint.
                 cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (255, 0, 0), -1)
-                cv2.imshow("Map", imutils.resize(mapMat, width=600))
-                cv2.waitKey(1)
+                save_image(imutils.resize(mapMat, width=600), "map")
+                # cv2.imshow("Map", imutils.resize(mapMat, width=600))
+                # cv2.waitKey(1)
 
             self.move_location(cur_pose, wp, align, spd=xy_spd, tries=3)
             # TODO: Measure pose again every N waypoints to correct for drift.

@@ -27,6 +27,7 @@ __all__ = [
     "nearest_cardinal",
     "ang_to_waypoint",
     "ManhattanSDGrid",
+    "save_image",
 ]
 
 viz_log = logging.getLogger("Viz")
@@ -170,6 +171,14 @@ def ang_to_waypoint(pose: RealPose, waypoint: LocOrPose):
     ang_to_wp = np.degrees(np.arctan2(waypoint.y - pose.y, waypoint.x - pose.x))
     delta = get_ang_delta(ang_to_wp, pose.z)
     return delta
+
+
+def save_image(img: np.ndarray, tag: str = "img"):
+    """Save image to disk."""
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    img_path = Path(f"temp/{tag}_{timestamp}.jpg")
+    img_path.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(img_path), img)
 
 
 class ManhattanSDGrid(SignedDistanceGrid):
