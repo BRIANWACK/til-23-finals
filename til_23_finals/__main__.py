@@ -82,7 +82,7 @@ def main():
         bind_robot(robot)
 
     robot.initialize(conn_type="ap")
-    robot.set_robot_mode(mode="free")
+    robot.set_robot_mode(mode="chassis_lead")
 
     # ===== Initialize API Connections =====
     loc_service = LocalizationService(

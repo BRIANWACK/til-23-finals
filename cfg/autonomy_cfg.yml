@@ -1,13 +1,13 @@
 MY_TEAM_NAME: BRIANWACK
-OPPONENT_TEAM_NAME: PALMTREE
+OPPONENT_TEAM_NAME: HUGGINGROBOT
 
-SCORE_SERVER_IP: 172.16.118.20
-SCORE_SERVER_PORT: 5512
-LOCALIZATION_SERVER_IP: 172.16.118.20
-LOCALIZATION_SERVER_PORT: 5577
+SCORE_SERVER_IP: 172.16.18.20
+SCORE_SERVER_PORT: 5501
+LOCALIZATION_SERVER_IP: 172.16.18.20
+LOCALIZATION_SERVER_PORT: 5566
 
-SUSPECT_IMG: data/arena-session1/1B_suspect.png
-HOSTAGE_IMG: data/arena-session1/1B_hostage.png
+SUSPECT_IMG: /home/advanced-brianwack/Desktop/DAY1-PM/SUSPECT_2.jpg
+HOSTAGE_IMG: /home/advanced-brianwack/Desktop/DAY1-PM/HOSTAGE.jpg
 SPEAKER_DIR: data/audio/train
 
 REACHED_THRESHOLD_M: 0.15 # Server is set to 0.35.
@@ -16,20 +16,20 @@ ROBOT_RADIUS_M: 0.0
 BOARDSCALE: 0.955
 EXTRASCALE: 1.0
 
-CARDINAL_MOVE: false
-XY_SPEED: 0.7
-XY_MICRO_SPEED: 0.4
-Z_SPEED: 45.0
+CARDINAL_MOVE: true
+XY_SPEED: 0.6
+XY_MICRO_SPEED: 0.5
+Z_SPEED: 30.0
 AI_Z_SPEED: 30.0
 POSE_YAW_SPEED: 30.0
 POSE_PITCH_SPEED: 20.0
 
-NLP_MODEL_DIR: models/large-v2.pt
-# NLP_MODEL_DIR: models/faster-whisper-large-v2
-CV_MODEL_DIR: models/det.pt
-REID_MODEL_DIR: models/reid.pt
-SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
-DENOISE_MODEL_DIR: models/DeepFilterNet3
+# NLP_MODEL_DIR: models/large-v2.pt
+NLP_MODEL_DIR: models/digit_asr/faster-whisper-large-v2
+CV_MODEL_DIR: models/reidx/detx.pt
+REID_MODEL_DIR: models/reidx/reidx.pt
+SPEAKER_ID_MODEL_DIR: models/speak_id/speakerverification_en_titanet_large.nemo
+DENOISE_MODEL_DIR: models/denoiser/DeepFilterNet3
 
 PHOTO_DIR: temp/imgs
 ZIP_SAVE_DIR: temp
@@ -37,13 +37,13 @@ ZIP_SAVE_DIR: temp
 VISUALIZE_FLAG: true
 
 # In metres.
-CALIBRATESCALE: true
+CALIBRATESCALE: false
 CALIBRATESCALEAVG: true # Calibrates scale by averaging with past measurements. If false, only use latest measurement.
 X_SCALE: 1.0 # Starting x_scale
 Y_SCALE: 1.0 # Starting y_scale
 FLIP_X: false
 FLIP_Y: true
-FLIP_Z: true
+FLIP_Z: false
 SWAP_XY: false
 
 use_real_models: true
