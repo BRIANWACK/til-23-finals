@@ -30,11 +30,13 @@ class BasicObjectReIDService(AbstractObjectReIDService):
     # TODO: Expose below hardcoded configs in `autonomy_cfg.yml` config file.
     det_conf_thres = 0.8  # 0.7
     det_iou_thres = 0.7
-    reid_thres = 0.4  # 0.25
+    # reid_thres = 0.4  # 0.25
     reid_pad = 0.075
     yolo_tta = True  # False
 
-    def __init__(self, yolo_model_path, reid_model_path, device=BEST_DEVICE):
+    def __init__(
+        self, yolo_model_path, reid_model_path, reid_thres=0.4, device=BEST_DEVICE
+    ):
         """Initialize BasicObjectReIDService.
 
         Parameters
@@ -48,6 +50,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
         """
         self.yolo_model_path = os.path.abspath(yolo_model_path)
         self.reid_model_path = os.path.abspath(reid_model_path)
+        self.reid_thres = reid_thres
         self.device = device
 
         log.info(

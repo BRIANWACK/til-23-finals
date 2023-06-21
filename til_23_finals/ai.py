@@ -27,20 +27,18 @@ def prepare_ai_loop(cfg, rep: ReportingService):
     MY_TEAM_NAME = cfg["MY_TEAM_NAME"]
     OPPONENT_TEAM_NAME = cfg["OPPONENT_TEAM_NAME"]
 
+    REID_THRES = cfg["REID_THRESHOLD"]
+
     VISUALIZE = cfg["VISUALIZE_FLAG"]
 
     if cfg["use_real_models"]:
-        from til_23_finals.services.digit import WhisperDigitDetectionService
+        from til_23_finals.services.digit import FasterWhisperDigitDetectionService
         from til_23_finals.services.reid import BasicObjectReIDService
         from til_23_finals.services.speaker import NeMoSpeakerIDService
 
         REID_SERVICE: type = BasicObjectReIDService
         SPEAKER_SERVICE: type = NeMoSpeakerIDService
-        DIGIT_SERVICE: type = WhisperDigitDetectionService
-
-        from til_23_finals.services.digit import FasterWhisperDigitDetectionService
-
-        DIGIT_SERVICE = FasterWhisperDigitDetectionService
+        DIGIT_SERVICE: type = FasterWhisperDigitDetectionService
 
     else:
         from til_23_finals.services.mock import (
@@ -55,7 +53,7 @@ def prepare_ai_loop(cfg, rep: ReportingService):
 
     main_log.info("===== Loading AI services =====")
     main_log.warning("This will take a while unless we implement concurrent loading!")
-    reid_service = REID_SERVICE(CV_MODEL_DIR, REID_MODEL_DIR)
+    reid_service = REID_SERVICE(CV_MODEL_DIR, REID_MODEL_DIR, reid_thres=REID_THRES)
     speaker_service = SPEAKER_SERVICE(SPEAKER_ID_MODEL_DIR, DENOISE_MODEL_DIR)
     digit_service = DIGIT_SERVICE(NLP_MODEL_DIR, DENOISE_MODEL_DIR)
 

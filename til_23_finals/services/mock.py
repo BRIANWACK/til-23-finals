@@ -115,7 +115,7 @@ class MockSpeakerIDService(AbstractSpeakerIDService):
 class MockObjectReIDService(AbstractObjectReIDService):
     """Implementation of the Object Re-ID service."""
 
-    def __init__(self, yolo_model_path: str, reid_model_path: str):
+    def __init__(self, yolo_model_path: str, reid_model_path: str, **kwargs):
         """Initialize MockObjectReIDService.
 
         Parameters
