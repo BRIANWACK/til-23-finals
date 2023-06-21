@@ -10,10 +10,10 @@ port: 5566
 #map_file: "/home/nicholas/code/til-23-finals/data/maps/map_simple_5x2.png"
 #map_file: "D:/TIL-AI 2023/til-22-finals/til-23-finals/data/maps/map_9-10may_5x7_2 _vertflip.png"
 #map_file: "/home/nicholas/code/til-23-finals/data/maps/map_simple_5x2.png"
-map_file: data/maps/map_complex_1cm.png
+map_file: /home/advanced-brianwack/Desktop/files/Day1_PM_advanced/Day1_PM_advanced_rr_2_flipped.png
 
 # Specify what image the virtual robot should return when using its "camera"
-image_file: data/simulator/hostage_scene.png
+image_file: /home/advanced-brianwack/Desktop/files/DAY1-PM/HOSTAGE.jpg
 
 map_scale: 0.01 # by default, set to 0.01. Ratio of real world units (metres) to one pixel.
 
