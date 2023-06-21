@@ -3,6 +3,7 @@
 import logging
 import re
 
+import numpy as np
 import torch
 import whisper
 from faster_whisper import WhisperModel
@@ -158,6 +159,8 @@ class FasterWhisperDigitDetectionService(AbstractDigitDetectionService):
             without_timestamps=True,
         )
         self.device = device
+        # Crash if model is broken.
+        self.model.transcribe(np.ones((16000,)), **self.options)
 
         self.deactivate()
 
