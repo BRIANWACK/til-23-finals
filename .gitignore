@@ -1,3 +1,9 @@
+/models
+/data
+/temp
+/logs
+/whls
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
