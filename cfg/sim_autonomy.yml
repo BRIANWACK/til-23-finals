@@ -8,28 +8,26 @@ LOCALIZATION_SERVER_PORT: 5566
 
 SUSPECT_IMG: data/simulator/sim_suspect.png
 HOSTAGE_IMG: data/simulator/sim_hostage.png
-SPEAKER_DIR: data/audio/train
+SPEAKER_DIR: data/speakers
 
-REACHED_THRESHOLD_M: 0.15 # Server is set to 0.35.
+REACHED_THRESHOLD_M: 0.2 # Server is set to 0.35.
 ANGLE_THRESHOLD_DEG: 20.0 # Unused by us.
 ROBOT_RADIUS_M: 0.0
-BOARDSCALE: 1.0
-EXTRASCALE: 1.0
 
-CARDINAL_MOVE: false
-XY_SPEED: 0.7
-XY_MICRO_SPEED: 0.4
-Z_SPEED: 45.0
-AI_Z_SPEED: 30.0
+CARDINAL_MOVE: true
+XY_SPEED: 0.8
+XY_MICRO_SPEED: 0.5
+Z_SPEED: 60.0
+AI_Z_SPEED: 60.0
 POSE_YAW_SPEED: 30.0
 POSE_PITCH_SPEED: 20.0
 
-NLP_MODEL_DIR: models/large-v2.pt
-# NLP_MODEL_DIR: models/faster-whisper-large-v2
-CV_MODEL_DIR: models/det.pt
-REID_MODEL_DIR: models/reid.pt
-SPEAKER_ID_MODEL_DIR: models/speakerverification_en_titanet_large.nemo
-DENOISE_MODEL_DIR: models/DeepFilterNet3
+# NLP_MODEL_DIR: models/large-v2.pt
+NLP_MODEL_DIR: models/digit_asr/faster-whisper-large-v2
+CV_MODEL_DIR: models/reidx/detx.pt
+REID_MODEL_DIR: models/reidx/reidx.pt
+SPEAKER_ID_MODEL_DIR: models/speak_id/speakerverification_en_titanet_large.nemo
+DENOISE_MODEL_DIR: models/denoiser/DeepFilterNet3
 
 PHOTO_DIR: temp/imgs
 ZIP_SAVE_DIR: temp
