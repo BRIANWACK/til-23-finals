@@ -80,6 +80,7 @@ class GridNavigator(Navigator):
         yaw_spd=None,
         pitch_spd=None,
         heading_only=True,
+        speed=1,
         rate_limit=0.22,
         min_reliable=4,
     ):
@@ -92,6 +93,8 @@ class GridNavigator(Navigator):
         """
         yaw_spd = self.POSE_YAW_SPEED if yaw_spd is None else yaw_spd
         pitch_spd = self.POSE_PITCH_SPEED if pitch_spd is None else pitch_spd
+        yaw = yaw // speed
+        pitch = pitch // speed
 
         nav_log.debug("Measuring pose...")
 
@@ -101,6 +104,8 @@ class GridNavigator(Navigator):
         self.robot.gimbal.recenter().wait_for_completed()
         pitches += self._gim_pose(rate_limit, pitch=-pitch, pitch_speed=pitch_spd)
         pitches += self._gim_pose(rate_limit, pitch=pitch, pitch_speed=pitch_spd)
+        pitches += self._gim_pose(rate_limit, pitch=pitch, pitch_speed=pitch_spd)
+        pitches += self._gim_pose(rate_limit, pitch=-pitch, pitch_speed=pitch_spd)
 
         if len(pitches) < min_reliable:
             return None
@@ -109,6 +114,8 @@ class GridNavigator(Navigator):
             self.robot.gimbal.recenter().wait_for_completed()
             yaws += self._gim_pose(rate_limit, yaw=-yaw, yaw_speed=yaw_spd)
             yaws += self._gim_pose(rate_limit, yaw=yaw, yaw_speed=yaw_spd)
+            yaws += self._gim_pose(rate_limit, yaw=yaw, yaw_speed=yaw_spd)
+            yaws += self._gim_pose(rate_limit, yaw=-yaw, yaw_speed=yaw_spd)
 
         self.robot.gimbal.recenter().wait_for_completed()
 
@@ -126,7 +133,7 @@ class GridNavigator(Navigator):
     def wait_for_valid_pose(self, ignore_invalid=False, quick=False):
         """Block until the pose received is valid."""
         while True:
-            pose = self.measure_pose(heading_only=quick)
+            pose = self.measure_pose(speed=2 if quick else 1)
             if pose is None:
                 nav_log.warning("Insufficient poses received from localization server.")
                 continue
@@ -254,7 +261,7 @@ class GridNavigator(Navigator):
         act = self.robot.chassis.move(x=mov_x, y=mov_y, xy_speed=spd)
         act.wait_for_completed()
         if not act.has_succeeded and tries > 0:
-            cur = self.wait_for_valid_pose(quick=False)
+            cur = self.wait_for_valid_pose(quick=True)
             return self.move_location(cur, tgt, cur.z, spd, tries=tries - 1)
         return act.has_succeeded
 
