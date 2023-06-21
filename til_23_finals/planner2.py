@@ -222,7 +222,7 @@ class GridPlanner:
             ):
                 path.append(cur)
             dir = ang
-        if _dist(path[-1], start) < dist_thres:
+        if len(path) > 1 and _dist(path[-1], start) < dist_thres:
             path.pop()
         path.reverse()
         return path
