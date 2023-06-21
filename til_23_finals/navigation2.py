@@ -331,7 +331,7 @@ class GridNavigator(Navigator):
 
                 # Mark current waypoint.
                 cv2.circle(mapMat, (grid_wp.x, grid_wp.y), 3, (255, 0, 0), -1)
-                save_image(imutils.resize(mapMat, width=600), "map")
+                # save_image(imutils.resize(mapMat, width=600), "map")
                 # cv2.imshow("Map", imutils.resize(mapMat, width=600))
                 # cv2.waitKey(1)
 

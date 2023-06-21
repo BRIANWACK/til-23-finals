@@ -11,7 +11,7 @@ HOSTAGE_IMG: data/simulator/sim_hostage.png
 SPEAKER_DIR: data/speakers
 
 REACHED_THRESHOLD_M: 0.2 # Server is set to 0.35.
-ANGLE_THRESHOLD_DEG: 20.0 # Unused by us.
+ANGLE_THRESHOLD_DEG: 20.0
 ROBOT_RADIUS_M: 0.0
 REID_THRESHOLD: 0.6
 

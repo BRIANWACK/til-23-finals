@@ -156,10 +156,12 @@ def main():
 
         if start_ai:
             start_ai = False
-            navigator.set_heading(last_pose.z, tgt_pose.z, Z_SPD, tries=3)
-            cur_pose = navigator.wait_for_valid_pose(quick=True)
-            # Reuse pose when resuming from AI task + last pose xy should be more accurate.
-            cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
+            cur_z, tgt_z = last_pose.z, tgt_pose.z
+            while abs(cur_z - tgt_z) > ANGLE_THRESHOLD:
+                navigator.set_heading(cur_z, tgt_z, Z_SPD, tries=3)
+                cur_pose = navigator.wait_for_valid_pose(quick=True)
+                # cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
+                cur_z = cur_pose.z
             tgt_pose = ai_loop(robot, cur_pose)
             main_log.info(f"New target: {tgt_pose}")
 
@@ -194,6 +196,7 @@ if __name__ == "__main__":
     LOCALIZATION_SERVER_IP = cfg["LOCALIZATION_SERVER_IP"]
     LOCALIZATION_SERVER_PORT = cfg["LOCALIZATION_SERVER_PORT"]
     ROBOT_RADIUS_M = cfg["ROBOT_RADIUS_M"]
+    ANGLE_THRESHOLD = cfg["ANGLE_THRESHOLD_DEG"]
     Z_SPD = cfg["AI_Z_SPEED"]
     CALIBRATE_SCALE = cfg["CALIBRATESCALE"]
     CALIBRATE_SCALE_AVG = cfg["CALIBRATESCALEAVG"]
