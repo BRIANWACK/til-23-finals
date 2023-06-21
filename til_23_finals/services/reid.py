@@ -193,15 +193,15 @@ class BasicObjectReIDService(AbstractObjectReIDService):
             log.warning(
                 'Both suspect and hostage are present in the scene! Default to "none".'
             )
-            lbl = ReIDClass.CIVILIAN
-            idx = -1
             # TODO: Should we just assume its a false positive instead and report no target?
-            # if sus_sims[sus_idx] > hos_sims[hos_idx]:
-            #     lbl = ReIDClass.SUSPECT
-            #     idx = sus_idx
-            # else:
-            #     lbl = ReIDClass.HOSTAGE
-            #     idx = hos_idx
+            # lbl = ReIDClass.CIVILIAN
+            # idx = -1
+            if sus_sims[sus_idx] > hos_sims[hos_idx]:
+                lbl = ReIDClass.SUSPECT
+                idx = sus_idx
+            else:
+                lbl = ReIDClass.HOSTAGE
+                idx = hos_idx
 
         max_sims = [max(s, h) for s, h in zip(sus_sims, hos_sims)]
         results = [
