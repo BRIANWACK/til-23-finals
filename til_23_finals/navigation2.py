@@ -76,7 +76,7 @@ class GridNavigator(Navigator):
     def measure_pose(
         self,
         yaw=30,
-        pitch=20,
+        pitch=15,
         yaw_spd=None,
         pitch_spd=None,
         heading_only=True,

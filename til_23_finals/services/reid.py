@@ -28,7 +28,7 @@ class BasicObjectReIDService(AbstractObjectReIDService):
     """Basic implementation of `AbstractObjectReIDService`."""
 
     # TODO: Expose below hardcoded configs in `autonomy_cfg.yml` config file.
-    det_conf_thres = 0.8  # 0.7
+    det_conf_thres = 0.5  # 0.7
     det_iou_thres = 0.7
     # reid_thres = 0.4  # 0.25
     reid_pad = 0.075
