@@ -1,6 +1,7 @@
 """Handle AI phase of robot."""
 
 import logging
+import time
 from pathlib import Path
 
 import cv2
@@ -81,6 +82,7 @@ def prepare_ai_loop(cfg, rep: ReportingService):
     @reid_service
     def _reid(robot: Robot, pose, save_path):
         with enable_camera(robot, PHOTO_DIR) as take_photo:
+            time.sleep(1)
             img = take_photo()
 
         # TODO: Robust camera logic:
