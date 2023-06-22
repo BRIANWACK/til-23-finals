@@ -20,6 +20,7 @@ from .ai import prepare_ai_loop
 from .emulate import bind_robot
 from .navigation2 import GridNavigator
 from .planner2 import GridPlanner
+from .utils import get_ang_delta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -157,11 +158,13 @@ def main():
         if start_ai:
             start_ai = False
             cur_z, tgt_z = last_pose.z, tgt_pose.z
-            while abs(cur_z - tgt_z) > ANGLE_THRESHOLD:
+            for _ in range(2):
                 navigator.set_heading(cur_z, tgt_z, Z_SPD, tries=3)
                 cur_pose = navigator.wait_for_valid_pose(quick=True)
                 # cur_pose = RealPose(last_pose.x, last_pose.y, cur_pose.z)
                 cur_z = cur_pose.z
+                if abs(get_ang_delta(cur_z, tgt_z)) < ANGLE_THRESHOLD:
+                    break
             tgt_pose = ai_loop(robot, cur_pose)
             main_log.info(f"New target: {tgt_pose}")
 

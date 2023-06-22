@@ -132,6 +132,7 @@ class GridNavigator(Navigator):
     # TODO: Maybe have an extra slow and accurate mode.
     def wait_for_valid_pose(self, ignore_invalid=False, quick=False):
         """Block until the pose received is valid."""
+        time.sleep(1)
         while True:
             pose = self.measure_pose(speed=2 if quick else 1)
             if pose is None:
