@@ -16,7 +16,7 @@ from .navigation import Navigator
 
 # Exceptions for path planning.
 from .planner2 import GridPlanner, InvalidStartException, NoPathFoundException
-from .types import LocOrPose
+from .types import Heading, LocOrPose
 from .utils import ang_to_heading, get_ang_delta, nearest_cardinal, save_image, viz_pose
 
 nav_log = logging.getLogger("Nav")
@@ -227,6 +227,14 @@ class GridNavigator(Navigator):
         a = np.deg2rad(heading)
         R = np.array(((np.cos(a), np.sin(a)), (-np.sin(a), np.cos(a))))
         x, y = R @ (x, y)
+        # if heading == Heading.POS_X:
+        #     x, y = x, y
+        # elif heading == Heading.POS_Y:
+        #     x, y = y, -x
+        # elif heading == Heading.NEG_X:
+        #     x, y = -x, -y
+        # elif heading == Heading.NEG_Y:
+        #     x, y = -y, x
         if self.SWAP_XY:
             x, y = y, x
         if self.FLIP_X:
